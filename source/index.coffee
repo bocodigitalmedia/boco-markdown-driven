@@ -83,7 +83,7 @@ configure = ($ = {}) ->
     getVariableNames: (code) ->
       tokens = require("coffee-script").tokens(code)
       tokens = tokens.filter (token) ->
-        token[0] is "IDENTIFIER" and token.variable and token.spaced
+        token[0] is "IDENTIFIER" and token.variable
       tokens.map (token) -> token[1]
 
     convert: (tokens) ->
@@ -117,7 +117,7 @@ configure = ($ = {}) ->
     constructor: (props = {}) ->
 
     parse: (tokens) ->
-      declared = ['require']
+      declared = ['require', 'console', 'module', 'process']
       snippets = []
 
       indent = (code, depth) ->
@@ -145,8 +145,12 @@ configure = ($ = {}) ->
           addSnippet code, token.depth
 
         if token.type is "vars"
-          vars = token.vars.filter (v) -> !(v in declared)
-          declared = declared.concat vars
+          vars = []
+
+          token.vars.forEach (v) ->
+            vars.push v unless (v in vars or v in declared)
+            declared.push v unless v in declared
+
           code = "[#{vars.join(",")}] = []"
           addSnippet code, token.depth
 
