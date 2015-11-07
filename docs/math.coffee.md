@@ -1,24 +1,24 @@
-# Math
+# Mather
 
-Math is a library for adding numbers.
+Mather is a `library` for adding numbers.
 
-    Math = require "math"
-    math = new Math
+    Mather = require "mather"
+    mather = new Mather
 
 ## Adding numbers
 
-Math can add numbers.
+Mather can add numbers.
 
-    a = 2, b = 3, c = 4, d = 5
+    [a,b,c,d] = [2,4,6,8]
 
 ### example: adding two numbers
 
-    adder.add a, b, (error, result) ->
+    mather.add a, b, (error, result) ->
       throw error if error?
-      result # => 5
+      result # => 6
 
 ### example: adding more than two numbers
 
-    adder.add a, b, c, d, (error, result) ->
+    mather.add a, b, c, d, (error, result) ->
       throw error if error?
-      result # => 14
+      result # => 20
