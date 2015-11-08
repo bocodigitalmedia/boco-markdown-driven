@@ -145,7 +145,7 @@ configure = function($) {
       return {
         type: "it",
         depth: depth,
-        text: text
+        text: text.replace(/^example\:?\s*/, "")
       };
     };
 
@@ -222,7 +222,7 @@ configure = function($) {
     }
 
     JasmineCoffeeParser.prototype.parse = function(tokens) {
-      var addAssertionDone, addSnippet, declared, indent, replaceAssertionComments, snippets;
+      var addDone, addSnippet, declared, indent, replaceAssertionComments, snippets;
       declared = ['require', 'console', 'module', 'process'];
       snippets = [];
       indent = function(code, depth) {
@@ -238,22 +238,47 @@ configure = function($) {
         return snippets.push(code);
       };
       replaceAssertionComments = function(code) {
-        var pattern;
-        pattern = /( +)(.*) # => (.*)/;
-        return code.replace(pattern, "$1expect($2).toEqual($3)");
+        var getAssertionCommentIndentation, getAssertionCommentSubject, getAssertionCommentTarget, transformAssertionComment;
+        getAssertionCommentSubject = function(line) {
+          var endIndex, startIndex;
+          startIndex = /[^\s]/.exec(line).index;
+          endIndex = line.indexOf(" # =>");
+          return line.slice(startIndex, endIndex);
+        };
+        getAssertionCommentTarget = function(line) {
+          return /\s# => (.*)$/.exec(line)[1];
+        };
+        getAssertionCommentIndentation = function(line) {
+          return /^(\s*)/.exec(line)[1];
+        };
+        transformAssertionComment = function(line) {
+          var indentation, subject, target;
+          if (line.indexOf(" # =>") === -1) {
+            return line;
+          }
+          subject = getAssertionCommentSubject(line);
+          target = getAssertionCommentTarget(line);
+          indentation = getAssertionCommentIndentation(line);
+          return indentation + "expect(" + subject + ").toEqual(" + target + ")";
+        };
+        return code.split("\n").map(transformAssertionComment).join("\n");
       };
-      addAssertionDone = function(code) {
+      addDone = function(code) {
         var lastSpacing, match, pattern;
         pattern = /^( +)([^ ]+)/gm;
         while (match = pattern.exec(code)) {
           lastSpacing = match[1];
         }
-        return code += "\n" + lastSpacing + "done()";
+        if (lastSpacing == null) {
+          lastSpacing = "";
+        }
+        return code += "\n\n" + lastSpacing + "done()";
       };
       tokens.forEach(function(token) {
-        var code, vars;
+        var code, quotedText, vars;
         if (token.type === "describe") {
-          code = "describe \"" + token.text + "\", ->";
+          quotedText = JSON.stringify(token.text);
+          code = "describe " + quotedText + ", ->";
           addSnippet(code, token.depth);
         }
         if (token.type === "vars") {
@@ -270,21 +295,23 @@ configure = function($) {
           addSnippet(code, token.depth);
         }
         if (token.type === "beforeEach") {
-          code = "beforeEach ->\n";
-          code += indent(token.code, 2);
+          code = "beforeEach (done) ->\n";
+          code = code + indent(token.code, 2);
+          code = addDone(code);
           addSnippet(code, token.depth);
         }
         if (token.type === "it") {
-          code = "it \"" + token.text + "\", (done) ->";
+          quotedText = JSON.stringify(token.text);
+          code = "it " + quotedText + ", (done) ->";
           addSnippet(code, token.depth);
         }
         if (token.type === "assertion") {
           code = replaceAssertionComments(token.code);
-          code = addAssertionDone(code);
+          code = addDone(code);
           return addSnippet(code, token.depth);
         }
       });
-      return snippets.join("\n\n");
+      return snippets.join("\n\n") + "\n";
     };
 
     return JasmineCoffeeParser;

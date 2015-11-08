@@ -15,10 +15,15 @@ clean-build-dir() {
 
 build() {
   build-source
+  build-specs
 }
 
 build-source() {
   $coffee -cmb -o $build_dir $source_dir
+}
+
+build-specs() {
+  $coffee "$DIR/../support/build-specs.coffee"
 }
 
 tests() {

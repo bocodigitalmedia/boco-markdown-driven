@@ -73,7 +73,7 @@ configure = ($ = {}) ->
     createItToken: ({depth, text}) ->
       type: "it"
       depth: depth
-      text: text
+      text: text.replace /^example\:?\s*/, ""
 
     createAssertionToken: ({depth, code}) ->
       type: "assertion"
@@ -130,18 +130,38 @@ configure = ($ = {}) ->
         snippets.push code
 
       replaceAssertionComments = (code) ->
-        pattern = /( +)(.*) # => (.*)/
-        code.replace pattern, "$1expect($2).toEqual($3)"
 
-      addAssertionDone = (code) ->
+        getAssertionCommentSubject = (line) ->
+          startIndex = /[^\s]/.exec(line).index
+          endIndex = line.indexOf " # =>"
+          line[startIndex...endIndex]
+
+        getAssertionCommentTarget = (line) ->
+          /\s# => (.*)$/.exec(line)[1]
+
+        getAssertionCommentIndentation = (line) ->
+          /^(\s*)/.exec(line)[1]
+
+        transformAssertionComment = (line) ->
+          return line if line.indexOf(" # =>") is -1
+          subject = getAssertionCommentSubject line
+          target = getAssertionCommentTarget line
+          indentation = getAssertionCommentIndentation line
+          "#{indentation}expect(#{subject}).toEqual(#{target})"
+
+        code.split("\n").map(transformAssertionComment).join("\n")
+
+      addDone = (code) ->
         pattern = /^( +)([^ ]+)/gm
         lastSpacing = match[1] while match = pattern.exec code
-        code += "\n#{lastSpacing}done()"
+        lastSpacing ?= ""
+        code += "\n\n#{lastSpacing}done()"
 
       tokens.forEach (token) ->
 
         if token.type is "describe"
-          code = "describe \"#{token.text}\", ->"
+          quotedText = JSON.stringify token.text
+          code = "describe #{quotedText}, ->"
           addSnippet code, token.depth
 
         if token.type is "vars"
@@ -155,20 +175,22 @@ configure = ($ = {}) ->
           addSnippet code, token.depth
 
         if token.type is "beforeEach"
-          code = "beforeEach ->\n"
-          code += indent token.code, 2
+          code = "beforeEach (done) ->\n"
+          code = code + indent(token.code, 2)
+          code = addDone code
           addSnippet code, token.depth
 
         if token.type is "it"
-          code = "it \"#{token.text}\", (done) ->"
+          quotedText = JSON.stringify token.text
+          code = "it #{quotedText}, (done) ->"
           addSnippet code, token.depth
 
         if token.type is "assertion"
           code = replaceAssertionComments token.code
-          code = addAssertionDone code
+          code = addDone code
           addSnippet code, token.depth
 
-      snippets.join("\n\n")
+      snippets.join("\n\n") + "\n"
 
   class FileCompiler
     tokenizer: null
