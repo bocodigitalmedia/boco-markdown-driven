@@ -177,9 +177,9 @@ configure = ($ = {}) ->
 
     constructor: (props = {}) ->
       @[key] = val for own key, val of props
-      @tokenizer ?= new MarkDownDriven.Tokenizer
-      @converter ?= new MarkDownDriven.JasmineConverter
-      @parser ?= new MarkDownDriven.JasmineCoffeeParser
+      @tokenizer ?= new Tokenizer
+      @converter ?= new JasmineConverter
+      @parser ?= new JasmineCoffeeParser
 
     parse: (markdown) ->
       tokens = @tokenizer.tokenize markdown
@@ -232,10 +232,10 @@ configure = ($ = {}) ->
         return done error if error
         @eachSeries sourceNames, @compileSourceName.bind(this), done
 
-    FileCompiler: FileCompiler
-    MultiFileCompiler: MultiFileCompiler
-    JasmineCoffeeParser: JasmineCoffeeParser
-    JasmineConverter: JasmineConverter
-    Tokenizer: Tokenizer
+  FileCompiler: FileCompiler
+  MultiFileCompiler: MultiFileCompiler
+  JasmineCoffeeParser: JasmineCoffeeParser
+  JasmineConverter: JasmineConverter
+  Tokenizer: Tokenizer
 
 module.exports = configure()

@@ -308,13 +308,13 @@ configure = function($) {
         this[key] = val;
       }
       if (this.tokenizer == null) {
-        this.tokenizer = new MarkDownDriven.Tokenizer;
+        this.tokenizer = new Tokenizer;
       }
       if (this.converter == null) {
-        this.converter = new MarkDownDriven.JasmineConverter;
+        this.converter = new JasmineConverter;
       }
       if (this.parser == null) {
-        this.parser = new MarkDownDriven.JasmineCoffeeParser;
+        this.parser = new JasmineCoffeeParser;
       }
     }
 
@@ -349,7 +349,7 @@ configure = function($) {
     return FileCompiler;
 
   })();
-  return MultiFileCompiler = (function() {
+  MultiFileCompiler = (function() {
     function MultiFileCompiler(params) {
       var key, val;
       if (params == null) {
@@ -424,19 +424,16 @@ configure = function($) {
       })(this));
     };
 
-    MultiFileCompiler.prototype.FileCompiler = FileCompiler;
-
-    MultiFileCompiler.prototype.MultiFileCompiler = MultiFileCompiler;
-
-    MultiFileCompiler.prototype.JasmineCoffeeParser = JasmineCoffeeParser;
-
-    MultiFileCompiler.prototype.JasmineConverter = JasmineConverter;
-
-    MultiFileCompiler.prototype.Tokenizer = Tokenizer;
-
     return MultiFileCompiler;
 
   })();
+  return {
+    FileCompiler: FileCompiler,
+    MultiFileCompiler: MultiFileCompiler,
+    JasmineCoffeeParser: JasmineCoffeeParser,
+    JasmineConverter: JasmineConverter,
+    Tokenizer: Tokenizer
+  };
 };
 
 module.exports = configure();

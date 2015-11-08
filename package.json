@@ -4,9 +4,9 @@
   "description": "Markdown Driven Development",
   "main": "boco-mdd/index.js",
   "scripts": {
-    "test": "./npm/test",
-    "preinstall": "./npm/preinstall",
-    "preversion": "./npm/preversion"
+    "test": "./npm/run tests",
+    "preversion": "./npm/run clean build tests",
+    "build": "./npm/run clean build"
   },
   "author": "Christian Bradley <christianbradley@gmail.com> (https://github.com/christianbradley)",
   "license": "ISC",
