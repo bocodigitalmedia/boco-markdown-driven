@@ -7,8 +7,15 @@
     "doc": "docs"
   },
   "scripts": {
-    "test": "coffee spec/runner.coffee"
+    "build": "NODE_PATH=$NODE_PATH:.. ./node_modules/.bin/coffee support/build-specs.coffee",
+    "test": "NODE_PATH=$NODE_PATH:. ./node_modules/.bin/coffee spec/runner.coffee"
+  },
+  "dependencies": {
+    "boco-mdd": "file:.."
   },
   "author": "Christian Bradley <christianbradley@gmail.com> (https://github.com/christianbradley)",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "coffee": "^2.0.0"
+  }
 }

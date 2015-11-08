@@ -1,8 +1,11 @@
 class Mather
-  add: (args...) ->
-    args.reduce (a, b) -> a + b
 
-  subtract: (args...) ->
-    args.reduce (a, b) -> a - b
+  add: (args..., done) ->
+    n = args.reduce (a, b) -> a + b
+    done null, n
+
+  subtract: (args..., done) ->
+    n = args.reduce (a, b) -> a - b
+    done null, n
 
 module.exports = Mather
