@@ -162,7 +162,7 @@ configure = function($) {
       var tokens;
       tokens = require("coffee-script").tokens(code);
       tokens = tokens.filter(function(token) {
-        return token[0] === "IDENTIFIER" && token.variable && token.spaced;
+        return token[0] === "IDENTIFIER" && token.variable;
       });
       return tokens.map(function(token) {
         return token[1];
@@ -222,7 +222,7 @@ configure = function($) {
 
     JasmineCoffeeParser.prototype.parse = function(tokens) {
       var addAssertionDone, addSnippet, declared, indent, replaceAssertionComments, snippets;
-      declared = ['require'];
+      declared = ['require', 'console', 'module', 'process'];
       snippets = [];
       indent = function(code, depth) {
         var i, indentation, j, ref;
@@ -256,10 +256,15 @@ configure = function($) {
           addSnippet(code, token.depth);
         }
         if (token.type === "vars") {
-          vars = token.vars.filter(function(v) {
-            return !(indexOf.call(declared, v) >= 0);
+          vars = [];
+          token.vars.forEach(function(v) {
+            if (!(indexOf.call(vars, v) >= 0 || indexOf.call(declared, v) >= 0)) {
+              vars.push(v);
+            }
+            if (indexOf.call(declared, v) < 0) {
+              return declared.push(v);
+            }
           });
-          declared = declared.concat(vars);
           code = "[" + (vars.join(",")) + "] = []";
           addSnippet(code, token.depth);
         }

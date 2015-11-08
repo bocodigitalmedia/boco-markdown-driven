@@ -1,0 +1,33 @@
+#!/bin/bash
+DIR="$(cd "$(dirname "$0")" && pwd)"
+coffee="$DIR/../node_modules/.bin/coffee"
+source_dir="$DIR/../source"
+build_dir="$DIR/../build"
+
+clean() {
+  clean-build-dir
+}
+
+clean-build-dir() {
+  rm -rf $build_dir/**/*.js $build_dir/**/*.map
+}
+
+build() {
+  build-source
+}
+
+build-source() {
+  $coffee -cmb -o $build_dir $source_dir
+}
+
+tests() {
+  run-specs
+}
+
+run-specs() {
+  runner="$DIR/../spec/runner.coffee"
+  $coffee $runner
+}
+
+argv=("$*")
+for arg in $argv; do eval ${arg}; done

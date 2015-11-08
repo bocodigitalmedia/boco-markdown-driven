@@ -3,40 +3,58 @@ File = require "fs"
 Path = require "path"
 glob = require "glob"
 
+class Compiler
+  tokenizer: null
+  converter: null
+  parser: null
 
-compileMarkdownFile = (params = {}, done) ->
-  sourcePath = params.sourcePath
-  targetPath = params.targetPath ? sourcePath + ".spec.coffee"
+  constructor: (props = {}) ->
+    @[key] = val for own key, val of props
+    @tokenizer ?= new MarkDownDriven.Tokenizer
+    @converter ?= new MarkDownDriven.JasmineConverter
+    @parser ?= new MarkDownDriven.JasmineCoffeeParser
 
-  tokenizer = params.tokenizer ? new MarkDownDriven.Tokenizer
-  converter = params.converter ? new MarkDownDriven.JasmineConverter
-  parser = params.parser ? new MarkDownDriven.JasmineCoffeeParser
+  parse: (markdown) ->
+    tokens = @tokenizer.tokenize markdown
+    tokens = @converter.convert tokens
+    @parser.parse tokens
 
-  File.readFile sourcePath, (error, data) ->
-    return done error if error?
-    markdown = data.toString()
-    tokens = tokenizer.tokenize markdown
-    tokens = converter.convert tokens
-    jasmine = parser.parse tokens
+  readFile: (path, done) ->
+    require("fs").readFile path, done
 
-    File.writeFile targetPath, jasmine, done
+  writeFile: (path, data, done) ->
+    require("fs").writeFile path, data, done
 
-compileMarkdownFiles = (params = {}, done) ->
-  cwd = process.cwd()
-  sourceDir = params.sourceDir ? Path.resolve cwd, "docs"
-  destDir = params.destDir ? Path.resolve cwd, "spec"
-  sourcePattern = params.sourcePattern ? "**/*.?(md|litcoffee)"
+  compile: (sourcePath, targetPath, done) ->
+    @readFile sourcePath, (error, data) =>
+      return done error if error?
+      compiled = @parse data.toString()
+      @writeFile targetPath, compiled, done
 
-  glob sourcePattern, cwd: sourceDir, (error, sourceNames) ->
-    return done error if error?
+class MassCompiler
+  constructor: (params = {}) ->
+    @[key] = val for own key, val of params
+    @cwd ?= process.cwd()
+    @compiler ?= new Compiler
+    @sourceDir ?= Path.resolve @cwd, "docs"
+    @targetDir ?= Path.resolve @cwd, "spec"
 
-    compileSourceName = (sourceName, done) ->
-      targetName = sourceName.replace /(\.(coffee)?\.md)$/, "-spec.coffee"
-      targetPath = Path.resolve destDir, targetName
-      sourcePath = Path.resolve sourceDir, sourceName
-      compileMarkdownFile sourcePath: sourcePath, targetPath: targetPath, (error) ->
-        return done error if error?
+  getTargetName: (sourceName) ->
+    sourceName.replace /((\.coffee)?\.md|\.litcoffee)$/, "-spec.coffee"
 
-    require("async").eachSeries sourceNames, compileSourceName, done
+  compileSourceName: (sourceName, done) ->
+    targetName = @getTargetName sourceName
+    sourcePath = Path.join @sourceDir, sourceName
+    targetPath = Path.join @targetDir, targetName
+    @compiler.compile sourcePath, targetPath, done
 
-compileMarkdownFiles null, (error) -> throw error if error?; process.exit(0)
+  eachSeries: (series, fn, done) ->
+    require("async").eachSeries series, fn, done
+
+  compile: (pattern = "**/*.?(md|litcoffee)", done) ->
+    glob pattern, cwd: @sourceDir, (error, sourceNames) =>
+      return done error if error
+      @eachSeries sourceNames, @compileSourceName.bind(this), done
+
+compiler = new MassCompiler 
+compiler.compile "**/*.?(md|litcoffee)", (error) -> throw error if error?

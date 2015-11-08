@@ -1,21 +1,23 @@
 {
-  "name": "literate-jasmine",
+  "name": "boco-mdd",
   "version": "0.0.1",
-  "description": "Literate Jasmine",
-  "main": "index.js",
+  "description": "Markdown Driven Development",
+  "main": "build/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "./npm/test",
+    "preinstall": "./npm/preinstall",
+    "preversion": "./npm/preversion"
   },
   "author": "Christian Bradley <christianbradley@gmail.com> (https://github.com/christianbradley)",
   "license": "ISC",
   "dependencies": {
     "async": "^1.5.0",
     "coffee-script": "^1.10.0",
+    "glob": "^5.0.15",
     "jasmine": "^2.3.2",
     "marked": "^0.3.5"
   },
   "devDependencies": {
-    "jasmine": "^2.3.2",
     "node-inspector": "^0.12.3"
   }
 }
