@@ -170,8 +170,72 @@ configure = ($ = {}) ->
 
       snippets.join("\n\n")
 
-  JasmineCoffeeParser: JasmineCoffeeParser
-  JasmineConverter: JasmineConverter
-  Tokenizer: Tokenizer
+  class FileCompiler
+    tokenizer: null
+    converter: null
+    parser: null
+
+    constructor: (props = {}) ->
+      @[key] = val for own key, val of props
+      @tokenizer ?= new MarkDownDriven.Tokenizer
+      @converter ?= new MarkDownDriven.JasmineConverter
+      @parser ?= new MarkDownDriven.JasmineCoffeeParser
+
+    parse: (markdown) ->
+      tokens = @tokenizer.tokenize markdown
+      tokens = @converter.convert tokens
+      @parser.parse tokens
+
+    readFile: (path, done) ->
+      require("fs").readFile path, done
+
+    writeFile: (path, data, done) ->
+      require("fs").writeFile path, data, done
+
+    compile: (sourcePath, targetPath, done) ->
+      @readFile sourcePath, (error, data) =>
+        return done error if error?
+        compiled = @parse data.toString()
+        @writeFile targetPath, compiled, done
+
+  class MultiFileCompiler
+    constructor: (params = {}) ->
+      @[key] = val for own key, val of params
+      @cwd ?= process.cwd()
+      @fileCompiler ?= new FileCompiler
+      @sourceDir ?= @resolvePath @cwd, "docs"
+      @targetDir ?= @resolvePath @cwd, "spec"
+
+    resolvePath: (args...) ->
+      require("path").resolve args...
+
+    joinPath: (args...) ->
+      require("path").join args...
+
+    eachSeries: (series, fn, done) ->
+      require("async").eachSeries series, fn, done
+
+    getTargetName: (sourceName) ->
+      sourceName.replace /((\.coffee)?\.md|\.litcoffee)$/, "-spec.coffee"
+
+    compileSourceName: (sourceName, done) ->
+      targetName = @getTargetName sourceName
+      sourcePath = @joinPath @sourceDir, sourceName
+      targetPath = @joinPath @targetDir, targetName
+      @fileCompiler.compile sourcePath, targetPath, done
+
+    glob: (args...) ->
+      require("glob") args...
+
+    compile: (pattern = "**/*.?(md|litcoffee)", done) ->
+      @glob pattern, cwd: @sourceDir, (error, sourceNames) =>
+        return done error if error
+        @eachSeries sourceNames, @compileSourceName.bind(this), done
+
+    FileCompiler: FileCompiler
+    MultiFileCompiler: MultiFileCompiler
+    JasmineCoffeeParser: JasmineCoffeeParser
+    JasmineConverter: JasmineConverter
+    Tokenizer: Tokenizer
 
 module.exports = configure()

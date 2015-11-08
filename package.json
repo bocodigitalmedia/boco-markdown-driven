@@ -2,7 +2,7 @@
   "name": "boco-mdd",
   "version": "0.0.1",
   "description": "Markdown Driven Development",
-  "main": "build/index.js",
+  "main": "boco-mdd/index.js",
   "scripts": {
     "test": "./npm/test",
     "preinstall": "./npm/preinstall",

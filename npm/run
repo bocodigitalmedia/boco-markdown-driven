@@ -3,6 +3,7 @@ DIR="$(cd "$(dirname "$0")" && pwd)"
 coffee="$DIR/../node_modules/.bin/coffee"
 source_dir="$DIR/../source"
 build_dir="$DIR/../build"
+npm_dir="$DIR/.."
 
 clean() {
   clean-build-dir
@@ -26,7 +27,7 @@ tests() {
 
 run-specs() {
   runner="$DIR/../spec/runner.coffee"
-  $coffee $runner
+  NODE_PATH=$NODE_PATH:$npm_dir $coffee $runner
 }
 
 argv=("$*")

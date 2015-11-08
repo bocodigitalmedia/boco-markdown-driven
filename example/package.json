@@ -1,0 +1,14 @@
+{
+  "name": "mather",
+  "version": "0.0.1",
+  "description": "Mather adds and subtracts stuff!",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "coffee spec/runner.coffee"
+  },
+  "author": "Christian Bradley <christianbradley@gmail.com> (https://github.com/christianbradley)",
+  "license": "ISC"
+}
