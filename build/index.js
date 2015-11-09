@@ -26,8 +26,13 @@ configure = function($) {
       return require(path);
     };
   }
+  if ($.globals == null) {
+    $.globals = ['encodeURI', 'NaN', 'WeakMap', 'Float64Array', 'decodeURI', 'Buffer', 'Array', 'Map', 'SyntaxError', 'decodeURIComponent', 'clearImmediate', 'Infinity', 'Promise', 'global', 'Int8Array', 'clearInterval', 'Math', 'setTimeout', 'WeakSet', 'Int16Array', 'setInterval', 'Int32Array', 'setImmediate', 'Uint16Array', 'Uint8ClampedArray', 'parseFloat', 'RangeError', 'EvalError', 'isNaN', 'console', 'Uint8Array', 'unescape', 'escape', 'RegExp', 'ArrayBuffer', 'eval', 'TypeError', 'require', 'Number', 'encodeURIComponent', 'Set', 'Uint32Array', 'JSON', 'module', 'Symbol', 'String', 'process', 'Function', 'Date', 'clearTimeout', 'Float32Array', 'v8', 'parseInt', 'Error', 'undefined', 'Object'];
+  }
   Tokenizer = (function() {
     Tokenizer.prototype.marked = null;
+
+    Tokenizer.prototype.defaultLanguage = null;
 
     function Tokenizer(props) {
       $.assign(this, props);
@@ -65,14 +70,16 @@ configure = function($) {
     };
 
     Tokenizer.prototype.createCodeToken = function(mdToken) {
+      var ref;
       return {
         type: "code",
+        lang: (ref = mdToken.lang) != null ? ref : this.defaultLanguage,
         text: mdToken.text
       };
     };
 
     Tokenizer.prototype.processMarkdownToken = function(tokens, mdToken) {
-      var createToken;
+      var createToken, previous, token;
       createToken = (function() {
         switch (false) {
           case !this.isExampleToken(mdToken):
@@ -83,6 +90,15 @@ configure = function($) {
             return this.createCodeToken;
         }
       }).call(this);
+      if (createToken == null) {
+        return tokens;
+      }
+      token = createToken(mdToken);
+      previous = tokens[tokens.length - 1];
+      if (token.type === "code" && (previous != null ? previous.type : void 0) === "code" && (previous != null ? previous.lang : void 0) === token.lang) {
+        previous.text = previous.text + "\n" + token.text;
+        return tokens;
+      }
       if (createToken != null) {
         tokens = tokens.concat(createToken(mdToken));
       }
@@ -229,7 +245,7 @@ configure = function($) {
 
     JasmineCoffeeParser.prototype.parse = function(tokens) {
       var addDone, addSnippet, declareVar, declared, indent, isDeclared, replaceAssertionComments, snippets;
-      declared = [['require', 'console', 'module', 'process']];
+      declared = [$.globals];
       snippets = [];
       indent = function(code, depth) {
         var i, indentation, j, ref;
@@ -320,9 +336,8 @@ configure = function($) {
           addSnippet(code, token.depth);
         }
         if (token.type === "beforeEach") {
-          code = "\nbeforeEach (done) ->\n";
+          code = "\nbeforeEach ->\n";
           code = code + indent(token.code, 2);
-          code = addDone(code);
           addSnippet(code, token.depth);
         }
         if (token.type === "it") {

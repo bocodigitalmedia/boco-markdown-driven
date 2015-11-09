@@ -5,8 +5,22 @@ configure = ($ = {}) ->
 
   $.require ?= (path) -> require path
 
+  $.globals ?= [
+    'encodeURI', 'NaN', 'WeakMap', 'Float64Array', 'decodeURI', 'Buffer',
+    'Array', 'Map', 'SyntaxError', 'decodeURIComponent', 'clearImmediate', 'Infinity',
+    'Promise', 'global', 'Int8Array', 'clearInterval', 'Math', 'setTimeout',
+    'WeakSet', 'Int16Array', 'setInterval', 'Int32Array', 'setImmediate', 'Uint16Array',
+    'Uint8ClampedArray', 'parseFloat', 'RangeError', 'EvalError', 'isNaN', 'console',
+    'Uint8Array', 'unescape', 'escape', 'RegExp', 'ArrayBuffer', 'eval',
+    'TypeError', 'require', 'Number', 'encodeURIComponent', 'Set', 'Uint32Array',
+    'JSON', 'module', 'Symbol', 'String', 'process', 'Function',
+    'Date', 'clearTimeout', 'Float32Array', 'v8', 'parseInt', 'Error',
+    'undefined', 'Object'
+  ]
+
   class Tokenizer
     marked: null
+    defaultLanguage: null
 
     constructor: (props) ->
       $.assign this, props
@@ -33,6 +47,7 @@ configure = ($ = {}) ->
 
     createCodeToken: (mdToken) ->
       type: "code"
+      lang: mdToken.lang
       text: mdToken.text
 
     processMarkdownToken: (tokens, mdToken) ->
@@ -40,6 +55,15 @@ configure = ($ = {}) ->
         when @isExampleToken mdToken then @createExampleToken
         when @isContextToken mdToken then @createContextToken
         when @isCodeToken mdToken then @createCodeToken
+
+      return tokens unless createToken?
+
+      token = createToken mdToken
+      previous = tokens[tokens.length - 1]
+
+      if token.type is "code" and previous?.type is "code" and previous?.lang is token.lang
+        previous.text = previous.text + "\n" + token.text
+        return tokens
 
       tokens = tokens.concat createToken(mdToken) if createToken?
       return tokens
@@ -124,7 +148,7 @@ configure = ($ = {}) ->
     parse: (tokens) ->
       # two dimensional array, first dimension representing depth at which vars defined
       declared = [
-        ['require', 'console', 'module', 'process']
+        $.globals
       ]
       snippets = []
 
@@ -192,9 +216,8 @@ configure = ($ = {}) ->
           addSnippet code, token.depth
 
         if token.type is "beforeEach"
-          code = "\nbeforeEach (done) ->\n"
+          code = "\nbeforeEach ->\n"
           code = code + indent(token.code, 2)
-          code = addDone code
           addSnippet code, token.depth
 
         if token.type is "it"

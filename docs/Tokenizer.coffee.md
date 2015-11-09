@@ -16,6 +16,9 @@ Let's take a look at the results of tokenizing some markdown.
       Mather is a library for doing math.
 
           Mather = require "mather"
+
+      Let's create a Mather:
+
           mather = new Mather
 
       ## example: adding numbers
@@ -25,7 +28,6 @@ Let's take a look at the results of tokenizing some markdown.
       """
 
     tokens = tokenizer.tokenize markdown
-
 
 #### example: a heading is a context token
 
@@ -40,8 +42,10 @@ The heading `# Mather` becomes a context token with a depth of 1.
 The code within the `# Mather` section gets tokenized as follows:
 
     tokens[1].type # => "code"
-    tokens[1].text[0...25] # => 'Mather = require "mather"'
 
+    lines = tokens[1].text.split "\n"
+    lines[0] # => 'Mather = require "mather"'
+    lines[1] # => 'mather = new Mather'
 
 #### example: a heading, starting with "example" is an example token
 

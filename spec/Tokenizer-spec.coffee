@@ -2,15 +2,14 @@
     
     [MarkDownDriven, tokenizer] = []
     
-    beforeEach (done) ->
+    beforeEach ->
       MarkDownDriven = require "boco-mdd"
       tokenizer = new MarkDownDriven.Tokenizer
-      done()
     describe "Tokenizing Markdown", ->
       
       [markdown, tokens] = []
       
-      beforeEach (done) ->
+      beforeEach ->
         markdown =
           """
           # Mather
@@ -18,6 +17,9 @@
           Mather is a library for doing math.
         
               Mather = require "mather"
+        
+          Let's create a Mather:
+        
               mather = new Mather
         
           ## example: adding numbers
@@ -27,8 +29,7 @@
           """
         
         tokens = tokenizer.tokenize markdown
-        
-        done()
+        console.log tokens
       
       it "a heading is a context token", (done) ->
         expect(tokens[0].type).toEqual("context")
@@ -38,7 +39,10 @@
       
       it "code is a code token", (done) ->
         expect(tokens[1].type).toEqual("code")
-        expect(tokens[1].text[0...25]).toEqual('Mather = require "mather"')
+        
+        lines = tokens[1].text.split "\n"
+        expect(lines[0]).toEqual('Mather = require "mather"')
+        expect(lines[1]).toEqual('mather = new Mather')
         done()
       
       it "a heading, starting with \"example\" is an example token", (done) ->
