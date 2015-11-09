@@ -6,6 +6,8 @@ Parses tokens from the JasmineConverter and outputs coffeescript "specs" for Jas
 
 ## Parsing Jasmine tokens
 
+Let's take a look at the coffeescript generated from the following tokens:
+
     parsed = parser.parse [
       { type: "describe", depth: 1, text: "Mather" },
       { type: "vars", depth: 2, vars: ['mather', 'Mather', 'a', 'b'] },
@@ -14,20 +16,33 @@ Parses tokens from the JasmineConverter and outputs coffeescript "specs" for Jas
       { type: "assertion", depth: 3, code: 'mather.add a,b # => 3' }
     ]
 
-### example: foo
+### example: generated coffeescript
 
-    lines = parsed.split("\n")
+    l = lines = parsed.split("\n")
 
-    lines.shift() # => 'describe "Mather", ->'
-    lines.shift() # => '  '
-    lines.shift() # => '  [mather, Mather, a, b] = []'
-    lines.shift() # => '  '
-    lines.shift() # => '  beforeEach (done) ->'
-    lines.shift() # => '    mather = new Mather'
-    lines.shift() # => '    done()'
-    lines.shift() # => '  '
-    lines.shift() # => '  it "adds two numbers", (done) ->'
-    lines.shift() # => '    expect(mather.add a,b).toEqual(3)'
-    lines.shift() # => '    done()'
-    lines.shift() # => ''
-    
+The describe token parses to a Jasmine describe block:
+
+    l[ 0] # => 'describe "Mather", ->'
+    l[ 1] # => '  '
+
+The vars are output before the 'beforeEach' block so that they
+are accessible by all child describes/its:
+
+    l[ 2] # => '  [mather, Mather, a, b] = []'
+    l[ 3] # => '  '
+
+Note that each 'beforeEach' block is assigned a 'done' callback,
+and that 'done()' is called at the end of the block.
+
+    l[ 4] # => '  beforeEach (done) ->'
+    l[ 5] # => '    mather = new Mather'
+    l[ 6] # => '    done()'
+    l[ 7] # => '  '
+
+The same applies to 'it' blocks. In addition, assertion comments `# =>`
+become jasmine expectations.
+
+    l[ 8] # => '  it "adds two numbers", (done) ->'
+    l[ 9] # => '    expect(mather.add a,b).toEqual(3)'
+    l[10] # => '    done()'
+    l[11] # => ''
