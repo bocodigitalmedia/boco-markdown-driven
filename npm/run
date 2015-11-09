@@ -26,14 +26,5 @@ build-specs() {
   $coffee "$DIR/../support/build-specs.coffee"
 }
 
-tests() {
-  run-specs
-}
-
-run-specs() {
-  runner="$DIR/../spec/runner.coffee"
-  NODE_PATH=$NODE_PATH:$npm_dir $coffee $runner
-}
-
 argv=("$*")
 for arg in $argv; do eval ${arg}; done
