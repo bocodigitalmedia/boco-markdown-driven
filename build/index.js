@@ -160,14 +160,20 @@ configure = function($) {
     };
 
     JasmineConverter.prototype.getVariableNames = function(code) {
-      var tokens;
+      var reduceFn, tokens;
       tokens = require("coffee-script").tokens(code);
-      tokens = tokens.filter(function(token) {
-        return token[0] === "IDENTIFIER" && token.variable;
-      });
-      return tokens.map(function(token) {
-        return token[1];
-      });
+      reduceFn = function(vars, token) {
+        var type, value;
+        type = token[0], value = token[1];
+        if (!(type === "IDENTIFIER" && token.variable)) {
+          return vars;
+        }
+        if (vars.indexOf(value) !== -1) {
+          return vars;
+        }
+        return vars.concat(value);
+      };
+      return tokens.reduce(reduceFn, []);
     };
 
     JasmineConverter.prototype.convert = function(tokens) {
@@ -222,8 +228,8 @@ configure = function($) {
     }
 
     JasmineCoffeeParser.prototype.parse = function(tokens) {
-      var addDone, addSnippet, declared, indent, replaceAssertionComments, snippets;
-      declared = ['require', 'console', 'module', 'process'];
+      var addDone, addSnippet, declareVar, declared, indent, isDeclared, replaceAssertionComments, snippets;
+      declared = [['require', 'console', 'module', 'process']];
       snippets = [];
       indent = function(code, depth) {
         var i, indentation, j, ref;
@@ -274,6 +280,24 @@ configure = function($) {
         }
         return code += "\n\n" + lastSpacing + "done()";
       };
+      isDeclared = function(v, depth) {
+        var j, ref, results;
+        return (function() {
+          results = [];
+          for (var j = ref = depth - 1; ref <= 0 ? j <= 0 : j >= 0; ref <= 0 ? j++ : j--){ results.push(j); }
+          return results;
+        }).apply(this).some(function(d) {
+          var ref;
+          return indexOf.call((ref = declared[d]) != null ? ref : [], v) >= 0;
+        });
+      };
+      declareVar = function(v, depth) {
+        var d;
+        d = declared[depth] != null ? declared[depth] : declared[depth] = [];
+        if (d.indexOf(v) === -1) {
+          return d.push(v);
+        }
+      };
       tokens.forEach(function(token) {
         var code, quotedText, vars;
         if (token.type === "describe") {
@@ -284,12 +308,10 @@ configure = function($) {
         if (token.type === "vars") {
           vars = [];
           token.vars.forEach(function(v) {
-            if (!(indexOf.call(vars, v) >= 0 || indexOf.call(declared, v) >= 0)) {
+            if (!isDeclared(v, token.depth)) {
               vars.push(v);
             }
-            if (indexOf.call(declared, v) < 0) {
-              return declared.push(v);
-            }
+            return declareVar(v, token.depth);
           });
           if (vars.length === 0) {
             return;
