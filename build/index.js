@@ -26,9 +26,6 @@ configure = function($) {
       return require(path);
     };
   }
-  if ($.globals == null) {
-    $.globals = ['encodeURI', 'NaN', 'WeakMap', 'Float64Array', 'decodeURI', 'Buffer', 'Array', 'Map', 'SyntaxError', 'decodeURIComponent', 'clearImmediate', 'Infinity', 'Promise', 'global', 'Int8Array', 'clearInterval', 'Math', 'setTimeout', 'WeakSet', 'Int16Array', 'setInterval', 'Int32Array', 'setImmediate', 'Uint16Array', 'Uint8ClampedArray', 'parseFloat', 'RangeError', 'EvalError', 'isNaN', 'console', 'Uint8Array', 'unescape', 'escape', 'RegExp', 'ArrayBuffer', 'eval', 'TypeError', 'require', 'Number', 'encodeURIComponent', 'Set', 'Uint32Array', 'JSON', 'module', 'Symbol', 'String', 'process', 'Function', 'Date', 'clearTimeout', 'Float32Array', 'v8', 'parseInt', 'Error', 'undefined', 'Object'];
-  }
   Tokenizer = (function() {
     Tokenizer.prototype.marked = null;
 
@@ -118,9 +115,14 @@ configure = function($) {
 
   })();
   JasmineConverter = (function() {
+    JasmineConverter.prototype.globalVariables = null;
+
     function JasmineConverter(props) {
       if (props == null) {
         props = {};
+      }
+      if (this.globalVariables == null) {
+        this.globalVariables = ["Infinity", "NaN", "undefined", "null", "eval", "isFinite", "isNaN", "parseFloat", "parseInt", "decodeURI", "decodeURIComponent", "encodeURI", "encodeURIComponent", "Object", "Function", "Boolean", "Error", "EvalError", "InternalError", "RangeError", "ReferenceError", "SyntaxError", "TypeError", "URIError", "Number", "Math", "Date", "String", "Symbol", "RegExp", "Array", "Int8Array", "Uint8Array", "Uint8ClampedArray", "Int16Array", "Uint16Array", "Int32Array", "Uint32Array", "Float32Array", "Float64Array", "Map", "Set", "WeakMap", "WeakSet", "SIMD", "ArrayBuffer", "DataView", "JSON", "Promise", "Generator", "GeneratorFunction", "Reflect", "Proxy", "arguments", "require", "console", "module", "process", "window", "jasmine", "spyOn"];
       }
     }
 
@@ -177,17 +179,22 @@ configure = function($) {
     JasmineConverter.prototype.getVariableNames = function(code) {
       var reduceFn, tokens;
       tokens = require("coffee-script").tokens(code);
-      reduceFn = function(vars, token) {
-        var type, value;
-        type = token[0], value = token[1];
-        if (!(type === "IDENTIFIER" && token.variable)) {
-          return vars;
-        }
-        if (vars.indexOf(value) !== -1) {
-          return vars;
-        }
-        return vars.concat(value);
-      };
+      reduceFn = (function(_this) {
+        return function(vars, token) {
+          var type, value;
+          type = token[0], value = token[1];
+          if (!(type === "IDENTIFIER" && token.variable)) {
+            return vars;
+          }
+          if (vars.indexOf(value) !== -1) {
+            return vars;
+          }
+          if (_this.globalVariables.indexOf(value) !== -1) {
+            return vars;
+          }
+          return vars.concat(value);
+        };
+      })(this);
       return tokens.reduce(reduceFn, []);
     };
 
@@ -244,7 +251,7 @@ configure = function($) {
 
     JasmineCoffeeParser.prototype.parse = function(tokens) {
       var addDone, addSnippet, declareVar, declared, indent, isDeclared, removeTrailingWhiteSpace, replaceAssertionComments, result, snippets;
-      declared = [$.globals];
+      declared = [];
       snippets = [];
       removeTrailingWhiteSpace = function(code) {
         return code.replace(/[ \t]+$/gm, "");

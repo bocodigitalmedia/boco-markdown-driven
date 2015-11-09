@@ -5,19 +5,6 @@ configure = ($ = {}) ->
 
   $.require ?= (path) -> require path
 
-  $.globals ?= [
-    'encodeURI', 'NaN', 'WeakMap', 'Float64Array', 'decodeURI', 'Buffer',
-    'Array', 'Map', 'SyntaxError', 'decodeURIComponent', 'clearImmediate', 'Infinity',
-    'Promise', 'global', 'Int8Array', 'clearInterval', 'Math', 'setTimeout',
-    'WeakSet', 'Int16Array', 'setInterval', 'Int32Array', 'setImmediate', 'Uint16Array',
-    'Uint8ClampedArray', 'parseFloat', 'RangeError', 'EvalError', 'isNaN', 'console',
-    'Uint8Array', 'unescape', 'escape', 'RegExp', 'ArrayBuffer', 'eval',
-    'TypeError', 'require', 'Number', 'encodeURIComponent', 'Set', 'Uint32Array',
-    'JSON', 'module', 'Symbol', 'String', 'process', 'Function',
-    'Date', 'clearTimeout', 'Float32Array', 'v8', 'parseInt', 'Error',
-    'undefined', 'Object'
-  ]
-
   class Tokenizer
     marked: null
     defaultLanguage: null
@@ -76,8 +63,23 @@ configure = ($ = {}) ->
       mdTokens.reduce @processMarkdownToken.bind(this), []
 
   class JasmineConverter
+    globalVariables: null
 
     constructor: (props = {}) ->
+      # https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects
+      @globalVariables ?= [
+        "Infinity", "NaN", "undefined", "null",
+        "eval", "isFinite", "isNaN", "parseFloat", "parseInt",
+        "decodeURI", "decodeURIComponent", "encodeURI", "encodeURIComponent",
+        "Object", "Function", "Boolean", "Error", "EvalError", "InternalError",
+        "RangeError", "ReferenceError", "SyntaxError", "TypeError", "URIError",
+        "Number", "Math", "Date", "String", "Symbol", "RegExp",
+        "Array", "Int8Array", "Uint8Array", "Uint8ClampedArray", "Int16Array",
+        "Uint16Array", "Int32Array", "Uint32Array", "Float32Array", "Float64Array",
+        "Map", "Set", "WeakMap", "WeakSet", "SIMD", "ArrayBuffer", "DataView", "JSON",
+        "Promise", "Generator", "GeneratorFunction", "Reflect", "Proxy", "arguments",
+        "require", "console", "module", "process", "window", "jasmine", "spyOn"
+      ]
 
     createDescribeToken: ({depth, text}) ->
       type: "describe"
@@ -107,10 +109,11 @@ configure = ($ = {}) ->
     getVariableNames: (code) ->
       tokens = require("coffee-script").tokens(code)
 
-      reduceFn = (vars, token) ->
+      reduceFn = (vars, token) =>
         [type, value] = token
         return vars unless type is "IDENTIFIER" and token.variable
         return vars unless vars.indexOf(value) is -1
+        return vars unless @globalVariables.indexOf(value) is -1
         vars.concat value
 
       tokens.reduce reduceFn, []
@@ -147,9 +150,7 @@ configure = ($ = {}) ->
 
     parse: (tokens) ->
       # two dimensional array, first dimension representing depth at which vars defined
-      declared = [
-        $.globals
-      ]
+      declared = []
       snippets = []
 
       removeTrailingWhiteSpace = (code) ->
