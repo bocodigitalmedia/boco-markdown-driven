@@ -5,7 +5,7 @@ var configure,
   slice = [].slice;
 
 configure = function($) {
-  var FileCompiler, JasmineCoffeeParser, JasmineConverter, MultiFileCompiler, Tokenizer;
+  var Compiler, FileCompiler, JasmineCoffeeParser, JasmineConverter, MultiFileCompiler, Tokenizer;
   if ($ == null) {
     $ = {};
   }
@@ -26,6 +26,33 @@ configure = function($) {
       return require(path);
     };
   }
+  Compiler = (function() {
+    function Compiler(props) {
+      if (props == null) {
+        props = {};
+      }
+      $.assign(this, props);
+      if (this.tokenizer == null) {
+        this.tokenizer = new Tokenizer;
+      }
+      if (this.converter == null) {
+        this.converter = new JasmineConverter;
+      }
+      if (this.parser == null) {
+        this.parser = new JasmineParser;
+      }
+    }
+
+    Compiler.prototype.compile = function(markdown) {
+      var tokens;
+      tokens = this.tokenizer.tokenize(markdown);
+      tokens = this.converter.convert(tokens);
+      return this.parser.parse(tokens);
+    };
+
+    return Compiler;
+
+  })();
   Tokenizer = (function() {
     Tokenizer.prototype.marked = null;
 
@@ -508,6 +535,7 @@ configure = function($) {
 
   })();
   return {
+    Compiler: Compiler,
     FileCompiler: FileCompiler,
     MultiFileCompiler: MultiFileCompiler,
     JasmineCoffeeParser: JasmineCoffeeParser,

@@ -5,6 +5,18 @@ configure = ($ = {}) ->
 
   $.require ?= (path) -> require path
 
+  class Compiler
+    constructor: (props = {}) ->
+      $.assign this, props
+      @tokenizer ?= new Tokenizer
+      @converter ?= new JasmineConverter
+      @parser ?= new JasmineParser
+
+    compile: (markdown) ->
+      tokens = @tokenizer.tokenize markdown
+      tokens = @converter.convert tokens
+      @parser.parse tokens
+
   class Tokenizer
     marked: null
     defaultLanguage: null
@@ -300,6 +312,7 @@ configure = ($ = {}) ->
         return done error if error
         @eachSeries sourceNames, @compileSourceName.bind(this), done
 
+  Compiler: Compiler
   FileCompiler: FileCompiler
   MultiFileCompiler: MultiFileCompiler
   JasmineCoffeeParser: JasmineCoffeeParser
