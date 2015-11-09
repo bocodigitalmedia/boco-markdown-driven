@@ -271,14 +271,14 @@ configure = function($) {
       };
       addDone = function(code) {
         var lastSpacing, match, pattern;
-        pattern = /^( +)([^ ]+)/gm;
+        pattern = /^(\s*)([^\s]+)/gm;
         while (match = pattern.exec(code)) {
           lastSpacing = match[1];
         }
         if (lastSpacing == null) {
           lastSpacing = "";
         }
-        return code += "\n\n" + lastSpacing + "done()";
+        return code += "\n" + lastSpacing + "done()";
       };
       isDeclared = function(v, depth) {
         var j, ref, results;
@@ -316,18 +316,18 @@ configure = function($) {
           if (vars.length === 0) {
             return;
           }
-          code = "[" + (vars.join(",")) + "] = []";
+          code = "\n[" + (vars.join(", ")) + "] = []";
           addSnippet(code, token.depth);
         }
         if (token.type === "beforeEach") {
-          code = "beforeEach (done) ->\n";
+          code = "\nbeforeEach (done) ->\n";
           code = code + indent(token.code, 2);
           code = addDone(code);
           addSnippet(code, token.depth);
         }
         if (token.type === "it") {
           quotedText = JSON.stringify(token.text);
-          code = "it " + quotedText + ", (done) ->";
+          code = "\nit " + quotedText + ", (done) ->";
           addSnippet(code, token.depth);
         }
         if (token.type === "assertion") {
@@ -336,7 +336,7 @@ configure = function($) {
           return addSnippet(code, token.depth);
         }
       });
-      return snippets.join("\n\n") + "\n";
+      return snippets.join("\n") + "\n";
     };
 
     return JasmineCoffeeParser;

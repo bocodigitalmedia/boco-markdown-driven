@@ -160,10 +160,10 @@ configure = ($ = {}) ->
         code.split("\n").map(transformAssertionComment).join("\n")
 
       addDone = (code) ->
-        pattern = /^( +)([^ ]+)/gm
+        pattern = /^(\s*)([^\s]+)/gm
         lastSpacing = match[1] while match = pattern.exec code
         lastSpacing ?= ""
-        code += "\n\n#{lastSpacing}done()"
+        code += "\n#{lastSpacing}done()"
 
       isDeclared = (v, depth) ->
         [(depth-1)..0].some (d) ->
@@ -188,18 +188,18 @@ configure = ($ = {}) ->
             declareVar v, token.depth
 
           return if vars.length is 0
-          code = "[#{vars.join(",")}] = []"
+          code = "\n[#{vars.join(", ")}] = []"
           addSnippet code, token.depth
 
         if token.type is "beforeEach"
-          code = "beforeEach (done) ->\n"
+          code = "\nbeforeEach (done) ->\n"
           code = code + indent(token.code, 2)
           code = addDone code
           addSnippet code, token.depth
 
         if token.type is "it"
           quotedText = JSON.stringify token.text
-          code = "it #{quotedText}, (done) ->"
+          code = "\nit #{quotedText}, (done) ->"
           addSnippet code, token.depth
 
         if token.type is "assertion"
@@ -207,7 +207,7 @@ configure = ($ = {}) ->
           code = addDone code
           addSnippet code, token.depth
 
-      snippets.join("\n\n") + "\n"
+      snippets.join("\n") + "\n"
 
   class FileCompiler
     tokenizer: null
