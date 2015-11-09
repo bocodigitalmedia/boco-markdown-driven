@@ -1,11 +1,10 @@
 Jasmine = require "jasmine"
 Path = require "path"
-argv = require("yargs").array("specFiles").argv
+argv = require("yargs").argv
 
 specDir = argv.specDir ? "spec"
-specFiles = argv.specFiles ? ["**/*-[sS]pec.?(coffee|js)"]
-
-console.log specDir: specDir, specFiles: specFiles
+specFiles = argv._ unless argv._.length is 0
+specFiles ?= ["**/*[Ss]pec.?(coffee|js)"]
 
 exports.run = ->
   jasmine = new Jasmine

@@ -1,6 +1,6 @@
 #!/bin/bash
-DIR="$(cd "$(dirname "$0")" && pwd)"
-coffee="$DIR/../node_modules/.bin/coffee"
-runner="$DIR/../spec/runner.coffee"
+DIR="$(cd "$(dirname "$0")/.." && pwd)"
+coffee="$DIR/node_modules/.bin/coffee"
+runner="$DIR/spec/runner.coffee"
 
-$coffee $runner "$@"
+NODE_PATH=$NODE_PATH:$DIR $coffee $runner "$@"
