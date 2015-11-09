@@ -1,6 +1,6 @@
 {
   "name": "boco-markdown-driven",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Markdown Driven Development",
   "main": "boco-markdown-driven/index.js",
   "scripts": {
