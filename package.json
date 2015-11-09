@@ -5,7 +5,7 @@
   "main": "boco-markdown-driven/index.js",
   "scripts": {
     "test": "./npm/test",
-    "preversion": "./npm/run clean build tests",
+    "preversion": "./npm/run clean build && npm test",
     "build": "./npm/run clean build"
   },
   "author": "Christian Bradley <christianbradley@gmail.com> (https://github.com/christianbradley)",
