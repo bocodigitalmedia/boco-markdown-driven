@@ -1,6 +1,6 @@
-MarkDownDriven = require "boco-mdd"
+MarkdownDriven = require "boco-markdown-driven"
 
-compiler = new MarkDownDriven.MultiFileCompiler
+compiler = new MarkdownDriven.MultiFileCompiler
   sourceDir: require("path").resolve __dirname, "docs"
   targetDir: require("path").resolve __dirname, "spec"
 

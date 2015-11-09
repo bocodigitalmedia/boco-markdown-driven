@@ -3,7 +3,7 @@ describe "Compiler", ->
   [MarkdownDriven, tokenizer, converter, parser, compiler, result] = []
 
   beforeEach ->
-    MarkdownDriven = require "boco-mdd"
+    MarkdownDriven = require "boco-markdown-driven"
 
     tokenizer = new MarkdownDriven.Tokenizer
     spyOn(tokenizer, "tokenize").and.returnValue "tokenized"

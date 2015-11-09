@@ -1,7 +1,7 @@
-# boco-mdd
+# boco-markdown-driven
 
-[![npm version](https://badge.fury.io/js/boco-mdd.svg)](https://badge.fury.io/js/boco-mdd)
+[![npm version](https://badge.fury.io/js/boco-markdown-driven.svg)](https://badge.fury.io/js/boco-markdown-driven)
 
 Markdown-Driven Development.
 
-* [npm](http://npmjs.org): `npm install boco-mdd`
+* [npm](http://npmjs.org): `npm install boco-markdown-driven`

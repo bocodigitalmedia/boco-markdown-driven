@@ -1,1 +1,1 @@
-describe "boco-mdd", ->
+describe "boco-markdown-driven", ->

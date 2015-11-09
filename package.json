@@ -1,8 +1,8 @@
 {
-  "name": "boco-mdd",
+  "name": "boco-markdown-driven",
   "version": "0.0.1",
   "description": "Markdown Driven Development",
-  "main": "boco-mdd/index.js",
+  "main": "boco-markdown-driven/index.js",
   "scripts": {
     "test": "./npm/test",
     "preversion": "./npm/run clean build tests",
