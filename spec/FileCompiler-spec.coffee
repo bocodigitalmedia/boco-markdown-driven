@@ -3,7 +3,7 @@ describe "FileCompiler", ->
   [MarkdownDriven, compiler, fileCompiler, mockFs, path, done, data] = []
 
   beforeEach ->
-    MarkdownDriven = require("boco-mdd")
+    MarkdownDriven = require("boco-markdown-driven")
 
     compiler = new MarkdownDriven.Compiler
     fileCompiler = new MarkdownDriven.FileCompiler compiler: compiler

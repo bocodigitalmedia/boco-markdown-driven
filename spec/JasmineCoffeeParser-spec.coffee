@@ -3,7 +3,7 @@ describe "JasmineCoffeeParser", ->
   [parser] = []
 
   beforeEach ->
-    parser = new (require("boco-mdd").JasmineCoffeeParser)
+    parser = new (require("boco-markdown-driven").JasmineCoffeeParser)
 
   describe "Parsing Jasmine tokens", ->
 

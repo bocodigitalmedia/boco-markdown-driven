@@ -2,7 +2,7 @@
 
 Parses tokens from the JasmineConverter and outputs coffeescript "specs" for Jasmine.
 
-    parser = new (require("boco-mdd").JasmineCoffeeParser)
+    parser = new (require("boco-markdown-driven").JasmineCoffeeParser)
 
 ## Parsing Jasmine tokens
 

@@ -1,6 +1,6 @@
 # Compiler
 
-    MarkdownDriven = require "boco-mdd"
+    MarkdownDriven = require "boco-markdown-driven"
 
     tokenizer = new MarkdownDriven.Tokenizer
     spyOn(tokenizer, "tokenize").and.returnValue "tokenized"
