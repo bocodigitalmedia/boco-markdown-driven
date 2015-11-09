@@ -82,9 +82,14 @@ configure = ($ = {}) ->
 
     getVariableNames: (code) ->
       tokens = require("coffee-script").tokens(code)
-      tokens = tokens.filter (token) ->
-        token[0] is "IDENTIFIER" and token.variable
-      tokens.map (token) -> token[1]
+
+      reduceFn = (vars, token) ->
+        [type, value] = token
+        return vars unless type is "IDENTIFIER" and token.variable
+        return vars unless vars.indexOf(value) is -1
+        vars.concat value
+
+      tokens.reduce reduceFn, []
 
     convert: (tokens) ->
       currentDepth = 0
@@ -117,7 +122,10 @@ configure = ($ = {}) ->
     constructor: (props = {}) ->
 
     parse: (tokens) ->
-      declared = ['require', 'console', 'module', 'process']
+      # two dimensional array, first dimension representing depth at which vars defined
+      declared = [
+        ['require', 'console', 'module', 'process']
+      ]
       snippets = []
 
       indent = (code, depth) ->
@@ -157,6 +165,14 @@ configure = ($ = {}) ->
         lastSpacing ?= ""
         code += "\n\n#{lastSpacing}done()"
 
+      isDeclared = (v, depth) ->
+        [(depth-1)..0].some (d) ->
+          v in (declared[d] ? [])
+
+      declareVar = (v, depth) ->
+        d = declared[depth] ?= []
+        d.push v if d.indexOf(v) is -1
+
       tokens.forEach (token) ->
 
         if token.type is "describe"
@@ -168,8 +184,8 @@ configure = ($ = {}) ->
           vars = []
 
           token.vars.forEach (v) ->
-            vars.push v unless (v in vars or v in declared)
-            declared.push v unless v in declared
+            vars.push v unless isDeclared v, token.depth
+            declareVar v, token.depth
 
           return if vars.length is 0
           code = "[#{vars.join(",")}] = []"
