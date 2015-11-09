@@ -171,6 +171,7 @@ configure = ($ = {}) ->
             vars.push v unless (v in vars or v in declared)
             declared.push v unless v in declared
 
+          return if vars.length is 0
           code = "[#{vars.join(",")}] = []"
           addSnippet code, token.depth
 

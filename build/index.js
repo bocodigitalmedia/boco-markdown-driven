@@ -291,6 +291,9 @@ configure = function($) {
               return declared.push(v);
             }
           });
+          if (vars.length === 0) {
+            return;
+          }
           code = "[" + (vars.join(",")) + "] = []";
           addSnippet(code, token.depth);
         }
