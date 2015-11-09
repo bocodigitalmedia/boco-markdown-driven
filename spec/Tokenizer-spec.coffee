@@ -4,7 +4,7 @@
     [MarkDownDriven, tokenizer] = []
 
     beforeEach ->
-      MarkDownDriven = require "boco-mdd"
+      MarkDownDriven = require "boco-markdown-driven"
       tokenizer = new MarkDownDriven.Tokenizer
 
     describe "Tokenizing Markdown", ->

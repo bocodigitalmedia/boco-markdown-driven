@@ -2,7 +2,7 @@
 
 Parses markdown into the tokens needed to build specs.
 
-    MarkDownDriven = require "boco-mdd"
+    MarkDownDriven = require "boco-markdown-driven"
     tokenizer = new MarkDownDriven.Tokenizer
 
 ### Tokenizing Markdown
