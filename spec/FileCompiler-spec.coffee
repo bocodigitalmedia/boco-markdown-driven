@@ -27,25 +27,13 @@ describe "FileCompiler", ->
       sourcePath = "docs/mather.md"
       targetPath = "spec/mather-spec.md"
 
-      mockFs[sourcePath] = """
-        # Mather
-
-        Mather is a library for doing maths.
-
-            Mather = require "Mather"
-            mather = new Mather
-
-        ### example: adding two numbers
-
-            mather.add 1, 2 # => 3
-            mather.add 3, 4 # => 7
-        """
+      mockFs[sourcePath] = "some markdown"
 
     it "compiling the markdown", (done) ->
         compiler.compile sourcePath, targetPath, (error) ->
           throw error if error?
 
-          expect(tokenizer.tokenize).toHaveBeenCalledWith mockFs[sourcePath]
+          expect(tokenizer.tokenize).toHaveBeenCalledWith "some markdown"
           expect(converter.convert).toHaveBeenCalledWith "tokenized"
           expect(parser.parse).toHaveBeenCalledWith "converted"
 
