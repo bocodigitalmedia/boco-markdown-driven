@@ -1,46 +1,41 @@
 # FileCompiler
 
-    FileCompiler = require("boco-mdd").FileCompiler
-    compiler = new FileCompiler
+    MarkdownDriven = require("boco-mdd")
 
-## Compiling
-
-Let's create a mock filesystem, then override our compiler's `readFile` and `writeFile` methods
-so we can test reading and writing:
+    compiler = new MarkdownDriven.Compiler
+    fileCompiler = new MarkdownDriven.FileCompiler compiler: compiler
 
     mockFs = Object.create null
 
-    compiler.readFile =  (path, done) ->
+    spyOn(compiler, 'compile').and.returnValue "compiled spec"
+
+    spyOn(fileCompiler, 'readFile').and.callFake (path, done) ->
       done null, mockFs[path]
 
-    compiler.writeFile = (path, data, done) ->
+    spyOn(fileCompiler, 'writeFile').and.callFake (path, data, done) ->
       mockFs[path] = data
       done()
 
-
-By default, the file compiler is configured with a default tokenizer, jasmine converter, and jasmine coffee parser.
-Let's spy on their methods to see what's going on here...
-
-    {tokenizer, converter, parser} = compiler
-
-    spyOn(tokenizer, 'tokenize').and.returnValue "tokenized"
-    spyOn(converter, 'convert').and.returnValue "converted"
-    spyOn(parser, 'parse').and.returnValue "parsed"
-
-Let's mock compiling some markdown into jasmine coffeescript specs:
+## Compiling
 
     sourcePath = "docs/mather.md"
-    targetPath = "spec/mather-spec.md"
+    targetPath = "docs/mather-spec.coffee"
 
     mockFs[sourcePath] = "some markdown"
+    mockFs[targetPath] = null
 
-### example: compiling the markdown
+### example: compiling
 
-      compiler.compile sourcePath, targetPath, (error) ->
-        throw error if error?
+    fileCompiler.compile sourcePath, targetPath, (error) ->
+      throw error if error?
 
-        expect(tokenizer.tokenize).toHaveBeenCalledWith "some markdown"
-        expect(converter.convert).toHaveBeenCalledWith "tokenized"
-        expect(parser.parse).toHaveBeenCalledWith "converted"
+      expect(fileCompiler.readFile)
+        .toHaveBeenCalledWith sourcePath, jasmine.any(Function)
 
-        mockFs[targetPath] # => "parsed"
+      expect(compiler.compile)
+        .toHaveBeenCalledWith "some markdown"
+
+      expect(fileCompiler.writeFile)
+        .toHaveBeenCalledWith targetPath, "compiled spec", jasmine.any(Function)
+
+      mockFs[targetPath] # => "compiled spec"

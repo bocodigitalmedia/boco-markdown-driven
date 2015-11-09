@@ -39,7 +39,7 @@ configure = function($) {
         this.converter = new JasmineConverter;
       }
       if (this.parser == null) {
-        this.parser = new JasmineParser;
+        this.parser = new JasmineCoffeeParser;
       }
     }
 
@@ -398,11 +398,7 @@ configure = function($) {
 
   })();
   FileCompiler = (function() {
-    FileCompiler.prototype.tokenizer = null;
-
-    FileCompiler.prototype.converter = null;
-
-    FileCompiler.prototype.parser = null;
+    FileCompiler.prototype.compiler = null;
 
     function FileCompiler(props) {
       var key, val;
@@ -414,31 +410,10 @@ configure = function($) {
         val = props[key];
         this[key] = val;
       }
-      if (this.tokenizer == null) {
-        this.tokenizer = new Tokenizer;
-      }
-      if (this.converter == null) {
-        this.converter = new JasmineConverter;
-      }
-      if (this.parser == null) {
-        this.parser = new JasmineCoffeeParser;
+      if (this.compiler == null) {
+        this.compiler = new Compiler;
       }
     }
-
-    FileCompiler.prototype.parse = function(markdown) {
-      var tokens;
-      tokens = this.tokenizer.tokenize(markdown);
-      tokens = this.converter.convert(tokens);
-      return this.parser.parse(tokens);
-    };
-
-    FileCompiler.prototype.readFile = function(path, done) {
-      return require("fs").readFile(path, done);
-    };
-
-    FileCompiler.prototype.writeFile = function(path, data, done) {
-      return require("fs").writeFile(path, data, done);
-    };
 
     FileCompiler.prototype.compile = function(sourcePath, targetPath, done) {
       return this.readFile(sourcePath, (function(_this) {
@@ -447,10 +422,23 @@ configure = function($) {
           if (error != null) {
             return done(error);
           }
-          compiled = _this.parse(data.toString());
-          return _this.writeFile(targetPath, compiled, done);
+          compiled = _this.compiler.compile(data.toString());
+          return _this.writeFile(targetPath, compiled, function(error) {
+            if (error != null) {
+              return done(error);
+            }
+            return done(null, compiled);
+          });
         };
       })(this));
+    };
+
+    FileCompiler.prototype.readFile = function(path, done) {
+      return require("fs").readFile(path, done);
+    };
+
+    FileCompiler.prototype.writeFile = function(path, data, done) {
+      return require("fs").writeFile(path, data, done);
     };
 
     return FileCompiler;

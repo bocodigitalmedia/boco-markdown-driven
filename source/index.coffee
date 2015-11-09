@@ -10,7 +10,7 @@ configure = ($ = {}) ->
       $.assign this, props
       @tokenizer ?= new Tokenizer
       @converter ?= new JasmineConverter
-      @parser ?= new JasmineParser
+      @parser ?= new JasmineCoffeeParser
 
     compile: (markdown) ->
       tokens = @tokenizer.tokenize markdown
@@ -251,32 +251,27 @@ configure = ($ = {}) ->
       removeTrailingWhiteSpace result
 
   class FileCompiler
-    tokenizer: null
-    converter: null
-    parser: null
+    compiler: null
 
     constructor: (props = {}) ->
       @[key] = val for own key, val of props
-      @tokenizer ?= new Tokenizer
-      @converter ?= new JasmineConverter
-      @parser ?= new JasmineCoffeeParser
+      @compiler ?= new Compiler
 
-    parse: (markdown) ->
-      tokens = @tokenizer.tokenize markdown
-      tokens = @converter.convert tokens
-      @parser.parse tokens
+    compile: (sourcePath, targetPath, done) ->
+
+      @readFile sourcePath, (error, data) =>
+        return done error if error?
+        compiled = @compiler.compile data.toString()
+
+        @writeFile targetPath, compiled, (error) ->
+          return done error if error?
+          return done null, compiled
 
     readFile: (path, done) ->
       require("fs").readFile path, done
 
     writeFile: (path, data, done) ->
       require("fs").writeFile path, data, done
-
-    compile: (sourcePath, targetPath, done) ->
-      @readFile sourcePath, (error, data) =>
-        return done error if error?
-        compiled = @parse data.toString()
-        @writeFile targetPath, compiled, done
 
   class MultiFileCompiler
     constructor: (params = {}) ->
