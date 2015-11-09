@@ -1,10 +1,10 @@
 describe "Jasmine Converter", ->
 
-  [MarkDownDriven, converter] = []
+  [MarkdownDriven, converter] = []
 
   beforeEach ->
-    MarkDownDriven = require "boco-mdd"
-    converter = new MarkDownDriven.JasmineConverter
+    MarkdownDriven = require "boco-mdd"
+    converter = new MarkdownDriven.JasmineConverter
 
   describe "Converting context/code tokens", ->
 

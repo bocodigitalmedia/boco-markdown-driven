@@ -2,8 +2,8 @@
 
 Converts tokens from a generic format to one suitable for Jasmine specs.
 
-    MarkDownDriven = require "boco-mdd"
-    converter = new MarkDownDriven.JasmineConverter
+    MarkdownDriven = require "boco-mdd"
+    converter = new MarkdownDriven.JasmineConverter
 
 ## Converting context/code tokens
 
