@@ -152,6 +152,9 @@ configure = ($ = {}) ->
       ]
       snippets = []
 
+      removeTrailingWhiteSpace = (code) ->
+        code.replace /[ \t]+$/gm, ""
+
       indent = (code, depth) ->
         indentation = ""
         indentation += "  " for i in [1...depth]
@@ -202,6 +205,7 @@ configure = ($ = {}) ->
         if token.type is "describe"
           quotedText = JSON.stringify token.text
           code = "describe #{quotedText}, ->"
+          code = "\n" + code unless token.depth is 1
           addSnippet code, token.depth
 
         if token.type is "vars"
@@ -230,7 +234,8 @@ configure = ($ = {}) ->
           code = addDone code
           addSnippet code, token.depth
 
-      snippets.join("\n") + "\n"
+      result = snippets.join("\n") + "\n"
+      removeTrailingWhiteSpace result
 
   class FileCompiler
     tokenizer: null

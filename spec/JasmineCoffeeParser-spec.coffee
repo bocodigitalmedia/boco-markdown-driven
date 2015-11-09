@@ -1,40 +1,46 @@
 describe "JasmineCoffeeParser", ->
-  
+
   [parser] = []
-  
-  beforeEach (done) ->
+
+  beforeEach ->
     parser = new (require("boco-mdd").JasmineCoffeeParser)
-    done()
+
   describe "Parsing Jasmine tokens", ->
-    
+
     [parsed] = []
-    
-    beforeEach (done) ->
+
+    beforeEach ->
       parsed = parser.parse [
         { type: "describe", depth: 1, text: "Mather" },
-        { type: "vars", depth: 2, vars: ['mather', 'Mather', 'a', 'b'] },
+        { type: "vars", depth: 2, vars: ['mather', 'Mather'] },
         { type: "beforeEach", depth: 2, code: 'mather = new Mather' },
-        { type: "it", depth: 2, text: "adds two numbers" },
-        { type: "assertion", depth: 3, code: 'mather.add a,b # => 3' }
+        { type: "describe", depth: 2, text: "Adding numbers" },
+        { type: "vars", depth: 3, vars: ['a', 'b'] },
+        { type: "beforeEach", depth: 3, code: '[a, b] = [1, 2]' },
+        { type: "it", depth: 3, text: "adds two numbers" },
+        { type: "assertion", depth: 4, code: 'mather.add a, b # => 3' }
       ]
-      done()
-    
+
     it "generated coffeescript", (done) ->
       l = lines = parsed.split("\n")
-      done()
-      expect(l[ 0]).toEqual('describe "Mather", ->')
-      expect(l[ 1]).toEqual('  ')
-      done()
-      expect(l[ 2]).toEqual('  [mather, Mather, a, b] = []')
-      expect(l[ 3]).toEqual('  ')
-      done()
-      expect(l[ 4]).toEqual('  beforeEach (done) ->')
-      expect(l[ 5]).toEqual('    mather = new Mather')
-      expect(l[ 6]).toEqual('    done()')
-      expect(l[ 7]).toEqual('  ')
-      done()
-      expect(l[ 8]).toEqual('  it "adds two numbers", (done) ->')
-      expect(l[ 9]).toEqual('    expect(mather.add a,b).toEqual(3)')
-      expect(l[10]).toEqual('    done()')
-      expect(l[11]).toEqual('')
+
+      expect(l.shift()).toEqual('describe "Mather", ->')
+      expect(l.shift()).toEqual('')
+      expect(l.shift()).toEqual('  [mather, Mather] = []')
+      expect(l.shift()).toEqual('')
+      expect(l.shift()).toEqual('  beforeEach ->')
+      expect(l.shift()).toEqual('    mather = new Mather')
+      expect(l.shift()).toEqual('')
+      expect(l.shift()).toEqual('  describe "Adding numbers", ->')
+      expect(l.shift()).toEqual('')
+      expect(l.shift()).toEqual('    [a, b] = []')
+      expect(l.shift()).toEqual('')
+      expect(l.shift()).toEqual('    beforeEach ->')
+      expect(l.shift()).toEqual('      [a, b] = [1, 2]')
+      expect(l.shift()).toEqual('')
+      expect(l.shift()).toEqual('    it "adds two numbers", (done) ->')
+      expect(l.shift()).toEqual('      expect(mather.add a, b).toEqual(3)')
+      expect(l.shift()).toEqual('      done()')
+      expect(l.shift()).toEqual('')
+      expect(l.shift()).toEqual(undefined)
       done()

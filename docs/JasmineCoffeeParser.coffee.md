@@ -10,39 +10,35 @@ Let's take a look at the coffeescript generated from the following tokens:
 
     parsed = parser.parse [
       { type: "describe", depth: 1, text: "Mather" },
-      { type: "vars", depth: 2, vars: ['mather', 'Mather', 'a', 'b'] },
+      { type: "vars", depth: 2, vars: ['mather', 'Mather'] },
       { type: "beforeEach", depth: 2, code: 'mather = new Mather' },
-      { type: "it", depth: 2, text: "adds two numbers" },
-      { type: "assertion", depth: 3, code: 'mather.add a,b # => 3' }
+      { type: "describe", depth: 2, text: "Adding numbers" },
+      { type: "vars", depth: 3, vars: ['a', 'b'] },
+      { type: "beforeEach", depth: 3, code: '[a, b] = [1, 2]' },
+      { type: "it", depth: 3, text: "adds two numbers" },
+      { type: "assertion", depth: 4, code: 'mather.add a, b # => 3' }
     ]
 
 ### example: generated coffeescript
 
     l = lines = parsed.split("\n")
 
-The describe token parses to a Jasmine describe block:
-
-    l[ 0] # => 'describe "Mather", ->'
-    l[ 1] # => '  '
-
-The vars are output before the 'beforeEach' block so that they
-are accessible by all child describes/its:
-
-    l[ 2] # => '  [mather, Mather, a, b] = []'
-    l[ 3] # => '  '
-
-Note that each 'beforeEach' block is assigned a 'done' callback,
-and that 'done()' is called at the end of the block.
-
-    l[ 4] # => '  beforeEach (done) ->'
-    l[ 5] # => '    mather = new Mather'
-    l[ 6] # => '    done()'
-    l[ 7] # => '  '
-
-The same applies to 'it' blocks. In addition, assertion comments `# =>`
-become jasmine expectations.
-
-    l[ 8] # => '  it "adds two numbers", (done) ->'
-    l[ 9] # => '    expect(mather.add a,b).toEqual(3)'
-    l[10] # => '    done()'
-    l[11] # => ''
+    l.shift() # => 'describe "Mather", ->'
+    l.shift() # => ''
+    l.shift() # => '  [mather, Mather] = []'
+    l.shift() # => ''
+    l.shift() # => '  beforeEach ->'
+    l.shift() # => '    mather = new Mather'
+    l.shift() # => ''
+    l.shift() # => '  describe "Adding numbers", ->'
+    l.shift() # => ''
+    l.shift() # => '    [a, b] = []'
+    l.shift() # => ''
+    l.shift() # => '    beforeEach ->'
+    l.shift() # => '      [a, b] = [1, 2]'
+    l.shift() # => ''
+    l.shift() # => '    it "adds two numbers", (done) ->'
+    l.shift() # => '      expect(mather.add a, b).toEqual(3)'
+    l.shift() # => '      done()'
+    l.shift() # => ''
+    l.shift() # => undefined

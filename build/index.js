@@ -70,10 +70,9 @@ configure = function($) {
     };
 
     Tokenizer.prototype.createCodeToken = function(mdToken) {
-      var ref;
       return {
         type: "code",
-        lang: (ref = mdToken.lang) != null ? ref : this.defaultLanguage,
+        lang: mdToken.lang,
         text: mdToken.text
       };
     };
@@ -244,9 +243,12 @@ configure = function($) {
     }
 
     JasmineCoffeeParser.prototype.parse = function(tokens) {
-      var addDone, addSnippet, declareVar, declared, indent, isDeclared, replaceAssertionComments, snippets;
+      var addDone, addSnippet, declareVar, declared, indent, isDeclared, removeTrailingWhiteSpace, replaceAssertionComments, result, snippets;
       declared = [$.globals];
       snippets = [];
+      removeTrailingWhiteSpace = function(code) {
+        return code.replace(/[ \t]+$/gm, "");
+      };
       indent = function(code, depth) {
         var i, indentation, j, ref;
         indentation = "";
@@ -319,6 +321,9 @@ configure = function($) {
         if (token.type === "describe") {
           quotedText = JSON.stringify(token.text);
           code = "describe " + quotedText + ", ->";
+          if (token.depth !== 1) {
+            code = "\n" + code;
+          }
           addSnippet(code, token.depth);
         }
         if (token.type === "vars") {
@@ -351,7 +356,8 @@ configure = function($) {
           return addSnippet(code, token.depth);
         }
       });
-      return snippets.join("\n") + "\n";
+      result = snippets.join("\n") + "\n";
+      return removeTrailingWhiteSpace(result);
     };
 
     return JasmineCoffeeParser;
