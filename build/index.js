@@ -5,7 +5,7 @@ var configure,
   slice = [].slice;
 
 configure = function($) {
-  var Compiler, FileCompiler, JasmineCoffeeParser, JasmineConverter, MultiFileCompiler, Tokenizer;
+  var CLI, Compiler, FileCompiler, JasmineCoffeeParser, JasmineConverter, MultiFileCompiler, Tokenizer;
   if ($ == null) {
     $ = {};
   }
@@ -503,26 +503,65 @@ configure = function($) {
       return require("glob").apply(null, args);
     };
 
-    MultiFileCompiler.prototype.compile = function(pattern, done) {
-      if (pattern == null) {
-        pattern = "**/*.?(md|litcoffee)";
+    MultiFileCompiler.prototype.compile = function() {
+      var compilePattern, done, j, patterns;
+      patterns = 2 <= arguments.length ? slice.call(arguments, 0, j = arguments.length - 1) : (j = 0, []), done = arguments[j++];
+      if (patterns.length === 0) {
+        patterns = ["**/*.?(md|litcoffee)"];
       }
-      return this.glob(pattern, {
-        cwd: this.sourceDir
-      }, (function(_this) {
-        return function(error, sourceNames) {
-          if (error) {
-            return done(error);
-          }
-          return _this.eachSeries(sourceNames, _this.compileSourceName.bind(_this), done);
+      compilePattern = (function(_this) {
+        return function(pattern, done) {
+          return _this.glob(pattern, {
+            cwd: _this.sourceDir
+          }, function(error, sourceNames) {
+            if (error) {
+              return done(error);
+            }
+            return _this.eachSeries(sourceNames, _this.compileSourceName.bind(_this), done);
+          });
         };
-      })(this));
+      })(this);
+      return this.eachSeries(patterns, compilePattern, done);
     };
 
     return MultiFileCompiler;
 
   })();
+  CLI = (function() {
+    CLI.prototype.multiFileCompiler = null;
+
+    function CLI(props) {
+      if (props == null) {
+        props = {};
+      }
+      $.assign(this, props);
+      if (this.multiFileCompiler == null) {
+        this.multiFileCompiler = new MultiFileCompiler;
+      }
+    }
+
+    CLI.prototype.getUsageBanner = function() {
+      return $0 + " [file|pattern]...\nCompile the specified files/patterns.";
+    };
+
+    CLI.prototype.run = function(done) {
+      var argv, patterns, ref, yargs;
+      yargs = require("yargs");
+      argv = yargs.argv;
+      patterns = argv._;
+      return (ref = this.multiFileCompiler).compile.apply(ref, slice.call(patterns).concat([function(error) {
+        if (error != null) {
+          throw error;
+        }
+        return process.exit(0);
+      }]));
+    };
+
+    return CLI;
+
+  })();
   return {
+    CLI: CLI,
     Compiler: Compiler,
     FileCompiler: FileCompiler,
     MultiFileCompiler: MultiFileCompiler,

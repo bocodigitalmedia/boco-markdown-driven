@@ -302,11 +302,40 @@ configure = ($ = {}) ->
     glob: (args...) ->
       require("glob") args...
 
-    compile: (pattern = "**/*.?(md|litcoffee)", done) ->
-      @glob pattern, cwd: @sourceDir, (error, sourceNames) =>
-        return done error if error
-        @eachSeries sourceNames, @compileSourceName.bind(this), done
+    compile: (patterns..., done) ->
+      patterns = ["**/*.?(md|litcoffee)"] if patterns.length is 0
 
+      compilePattern = (pattern, done) =>
+        @glob pattern, cwd: @sourceDir, (error, sourceNames) =>
+          return done error if error
+          @eachSeries sourceNames, @compileSourceName.bind(this), done
+
+      @eachSeries patterns, compilePattern, done
+
+  class CLI
+    multiFileCompiler: null
+
+    constructor: (props = {}) ->
+      $.assign this, props
+      @multiFileCompiler ?= new MultiFileCompiler
+
+    getUsageBanner: ->
+      """
+      #{$0} [file|pattern]...
+      Compile the specified files/patterns.
+      """
+
+    run: (done) ->
+
+      yargs = require("yargs")
+      argv = yargs.argv
+      patterns = argv._
+
+      @multiFileCompiler.compile patterns..., (error) ->
+        throw error if error?
+        process.exit 0
+
+  CLI: CLI
   Compiler: Compiler
   FileCompiler: FileCompiler
   MultiFileCompiler: MultiFileCompiler

@@ -1,8 +1,9 @@
-MarkDownDriven = require ".."
+MarkdownDriven = require "../source"
 Path = require 'path'
-compiler = new MarkDownDriven.MultiFileCompiler
+
+compiler = new MarkdownDriven.MultiFileCompiler
   sourceDir: Path.resolve __dirname, "..", "docs"
   targetDir: Path.resolve __dirname, "..", "spec"
 
-compiler.compile "**/*.coffee.md", (error) ->
-  throw error if error?
+cli = new MarkdownDriven.CLI multiFileCompiler: compiler
+cli.run()
