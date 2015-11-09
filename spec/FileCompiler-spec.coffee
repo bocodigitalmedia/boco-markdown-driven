@@ -1,42 +1,48 @@
 describe "FileCompiler", ->
 
-  [FileCompiler, compiler] = []
+  [MarkdownDriven, compiler, fileCompiler, mockFs, path, done, data] = []
 
   beforeEach ->
-    FileCompiler = require("boco-mdd").FileCompiler
-    compiler = new FileCompiler
+    MarkdownDriven = require("boco-mdd")
+
+    compiler = new MarkdownDriven.Compiler
+    fileCompiler = new MarkdownDriven.FileCompiler compiler: compiler
+
+    mockFs = Object.create null
+
+    spyOn(compiler, 'compile').and.returnValue "compiled spec"
+
+    spyOn(fileCompiler, 'readFile').and.callFake (path, done) ->
+      done null, mockFs[path]
+
+    spyOn(fileCompiler, 'writeFile').and.callFake (path, data, done) ->
+      mockFs[path] = data
+      done()
 
   describe "Compiling", ->
 
-    [mockFs, path, done, data, tokenizer, converter, parser, sourcePath, targetPath] = []
+    [sourcePath, targetPath] = []
 
     beforeEach ->
-      mockFs = Object.create null
-
-      compiler.readFile =  (path, done) ->
-        done null, mockFs[path]
-
-      compiler.writeFile = (path, data, done) ->
-        mockFs[path] = data
-        done()
-      {tokenizer, converter, parser} = compiler
-
-      spyOn(tokenizer, 'tokenize').and.returnValue "tokenized"
-      spyOn(converter, 'convert').and.returnValue "converted"
-      spyOn(parser, 'parse').and.returnValue "parsed"
       sourcePath = "docs/mather.md"
-      targetPath = "spec/mather-spec.md"
+      targetPath = "docs/mather-spec.coffee"
 
       mockFs[sourcePath] = "some markdown"
+      mockFs[targetPath] = null
 
-    it "compiling the markdown", (done) ->
-        compiler.compile sourcePath, targetPath, (error) ->
-          throw error if error?
+    it "compiling", (done) ->
+      fileCompiler.compile sourcePath, targetPath, (error) ->
+        throw error if error?
 
-          expect(tokenizer.tokenize).toHaveBeenCalledWith "some markdown"
-          expect(converter.convert).toHaveBeenCalledWith "tokenized"
-          expect(parser.parse).toHaveBeenCalledWith "converted"
+        expect(fileCompiler.readFile)
+          .toHaveBeenCalledWith sourcePath, jasmine.any(Function)
 
-          expect(mockFs[targetPath]).toEqual("parsed")
+        expect(compiler.compile)
+          .toHaveBeenCalledWith "some markdown"
 
-          done()
+        expect(fileCompiler.writeFile)
+          .toHaveBeenCalledWith targetPath, "compiled spec", jasmine.any(Function)
+
+        expect(mockFs[targetPath]).toEqual("compiled spec")
+
+        done()
