@@ -2,10 +2,6 @@ Jasmine = require "jasmine"
 Path = require "path"
 argv = require("yargs")
   .default("specDir", "spec")
-  .boolean("stopOnFailure")
-  .default("stopOnFailure", false)
-  .boolean("showColors")
-  .default("showColors", true)
   .argv
 
 specFiles = argv._ unless argv._.length is 0
@@ -15,11 +11,8 @@ exports.run = ->
   jasmine = new Jasmine
 
   jasmine.loadConfig
-    "spec_dir": argv.specDir,
-    "spec_files": specFiles
-
-  jasmine.stopSpecOnExpectationFailure argv.stopOnFailure
-  jasmine.showColors argv.showColors
+    spec_dir: argv.specDir
+    spec_files: specFiles
 
   jasmine.execute()
 
