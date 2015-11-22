@@ -29,6 +29,9 @@ class RootNode extends Node
   addContextNode: (props) ->
     @addChild new ContextNode(props)
 
+  getContextNodes: ->
+    @getChildrenByType "ContextNode"
+
 class ContextNode extends Node
   text: null
   depth: null
@@ -44,6 +47,18 @@ class ContextNode extends Node
 
   addAssertionNode: (props) ->
     @addChild new AssertionNode(props)
+
+  getContextNodes: ->
+    @getChildrenByType "ContextNode"
+
+  getFileNodes: ->
+    @getChildrenByType "FileNode"
+
+  getAssertionNodes: ->
+    @getChildrenByType "AssertionNode"
+
+  getBeforeEachNodes: ->
+    @getChildrenByType "BeforeEachNode"
 
 class BeforeEachNode extends Node
   code: null
@@ -69,8 +84,11 @@ class DepthError extends Error
 
 class Parser
 
+  constructor: (props = {}) ->
+    @[key] = val for own key,val of props
+
   isAssertionCode: (code) ->
-    /# =>/.test code
+    /\b(expect|assert|should)\b/.test code
 
   isAssertionNext: (tokens) ->
     return false unless tokens.length > 1
@@ -135,12 +153,81 @@ class Parser
     @parseContextChildTokens contextNode, childTokens
     @parse tokens, rootNode, contextNode
 
+class Snippets
+  constructor: ->
+    @snippets = []
+    @indentationString = '  '
+
+  indent: (code, depth) ->
+    indentation = [0...depth].map(=> @indentationString).join('')
+    code.replace /^/gm, indentation
+
+  add: (code, depth = 0) ->
+    @snippets.push @indent(code, depth)
+
+  compile: (joinStr = "\n\n") ->
+    @snippets.join(joinStr) + "\n"
+
+class JasmineCoffeeCompiler
+
+  compileFileNodes: (snippets, nodes) ->
+    return snippets unless nodes.length
+
+    depth = nodes[0].depth
+    mockFsObject = nodes.reduce ((memo, {path, data}) -> memo[path] = data), {}
+    mockFsString = JSON.stringify mockFsObject, null, 2
+
+    snippets.add "beforeEach ->", depth
+    snippets.add "mockFsObject = #{mockFsString}", depth + 1
+    snippets.add "require('mock-fs')(mockFsObject)", depth + 1
+    snippets.add "afterEach ->", depth
+    snippets.add "require('mock-fs').restore()", depth + 1
+    snippets
+
+  compileBeforeEachNodes: (snippets, nodes) ->
+    return snippets unless nodes.length
+
+    depth = nodes[0].depth
+    snippets.add "beforeEach ->", depth
+    snippets.add node.code, depth + 1 for node in nodes
+    snippets
+
+  compileAssertionNode: (snippets, node) ->
+    {depth, text, code} = node
+    snippets.add "it #{JSON.stringify(text)} ->", depth
+    snippets.add code, depth + 1
+    snippets
+
+  compileAssertionNodes: (snippets, nodes) ->
+    return snippets unless nodes.length
+    nodes.reduce @compileAssertionNode.bind(@), snippets
+
+  compileContextNode: (snippets, node) ->
+    {text, depth} = node
+    snippets.add "describe #{JSON.stringify(text)} ->", depth
+    snippets = @compileBeforeEachNodes snippets, node.getBeforeEachNodes()
+    snippets = @compileFileNodes snippets, node.getFileNodes()
+    snippets = @compileAssertionNodes snippets, node.getAssertionNodes()
+    snippets = @compileContextNodes snippets, node.getContextNodes()
+    snippets
+
+  compileContextNodes: (snippets, nodes) ->
+    return snippets unless nodes.length
+    nodes.reduce @compileContextNode.bind(@), snippets
+
+  compile: (rootNode) ->
+    snippets = @compileContextNodes new Snippets(), rootNode.getContextNodes()
+    snippets.compile()
+
+
 test = ->
 
   markdown = require("fs").readFileSync("example.md").toString()
   tokens = require("marked").lexer markdown
   parser = new Parser
-  parser.parse tokens
+  rootNode = parser.parse tokens
+  compiler = new JasmineCoffeeCompiler
+  compiler.compile rootNode
 
 results = test()
-console.log JSON.stringify(results,null,2)
+console.log results
