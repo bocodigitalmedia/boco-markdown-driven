@@ -1,233 +1,222 @@
-class Node
-  type: null
-  children: null
+configure = (configuration = {}) ->
+  $ = {}
+  $[key] = val for own key, val of configuration
 
-  constructor: (props = {}) ->
-    Object.defineProperty @, "parent",
-      value: null, enumerable: false, writable: true
+  class ParseTree
+    contextNodes: null
+    depth: null
 
-    Object.defineProperty @, "ancestors", enumerable: false, get: ->
-      do => node = this; node = node.parent while node.parent?
+    constructor: (props = {}) ->
+      @[key] = val for own key, val of props
+      @depth ?= 0
+      @contextNodes ?= []
 
-    Object.defineProperty @, "depth", enumerable: true, get: ->
-      @ancestors.length
+    addContextNode: (props) ->
+      node = new ContextNode(props)
+      node.parent = this
+      @contextNodes.push node
+      node
 
-    @[key] = val for own key, val of props
-    @type ?= @constructor.name
-    @children ?= []
+    getContextNodes: ->
+      @contextNodes
 
-  addChild: (node) ->
-    node.parent = this
-    @children.push node
-    return node
+  class Node
+    type: null
 
-  getChildrenByType: (type) ->
-    @children.filter (child) -> child.type is type
+    constructor: (props = {}) ->
+      Object.defineProperty @, "parent",
+        value: null, enumerable: false, writable: true
 
-class RootNode extends Node
+      Object.defineProperty @, "ancestors", enumerable: false, get: ->
+        do => node = this; node = node.parent while node.parent?
 
-  addContextNode: (props) ->
-    @addChild new ContextNode(props)
+      Object.defineProperty @, "depth", enumerable: true, get: ->
+        @ancestors.length
 
-  getContextNodes: ->
-    @getChildrenByType "ContextNode"
+      @[key] = val for own key, val of props
+      @type ?= @constructor.name
 
-class ContextNode extends Node
-  text: null
-  depth: null
+  class ContextNode extends Node
+    text: null
+    children: null
 
-  addContextNode: (props) ->
-    @addChild new ContextNode(props)
+    constructor: (props) ->
+      super props
+      @children ?= []
 
-  addBeforeEachNode: (props) ->
-    @addChild new BeforeEachNode(props)
+    addChild: (node) ->
+      node.parent = this
+      @children.push node
+      node
 
-  addFileNode: (props) ->
-    @addChild new FileNode(props)
+    getChildrenByType: (type) ->
+      @children.filter (child) -> child.type is type
 
-  addAssertionNode: (props) ->
-    @addChild new AssertionNode(props)
+    addContextNode: (props) ->
+      @addChild new ContextNode(props)
 
-  getContextNodes: ->
-    @getChildrenByType "ContextNode"
+    addBeforeEachNode: (props) ->
+      @addChild new BeforeEachNode(props)
 
-  getFileNodes: ->
-    @getChildrenByType "FileNode"
+    addFileNode: (props) ->
+      @addChild new FileNode(props)
 
-  getAssertionNodes: ->
-    @getChildrenByType "AssertionNode"
+    addAssertionNode: (props) ->
+      @addChild new AssertionNode(props)
 
-  getBeforeEachNodes: ->
-    @getChildrenByType "BeforeEachNode"
+    getContextNodes: ->
+      @getChildrenByType "ContextNode"
 
-class BeforeEachNode extends Node
-  code: null
+    getFileNodes: ->
+      @getChildrenByType "FileNode"
 
-class FileNode extends Node
-  path: null
-  data: null
+    getAssertionNodes: ->
+      @getChildrenByType "AssertionNode"
 
-class AssertionNode extends Node
-  text: null
-  code: null
+    getBeforeEachNodes: ->
+      @getChildrenByType "BeforeEachNode"
 
-class DepthError extends Error
-  constructor: ({previous, heading}) ->
-    @previous = previous
-    @heading = heading
-    @name = @constructor.name
-    Error.captureStackTrace @, @constructor
-    @message = @getMessage()
+    getAncestorContexts: ->
+      @ancestors.filter ({type}) -> type is "ContextNode"
 
-  getMessage: ->
-    "Invalid heading depth (#{@heading.depth}) for heading '#{@heading.text}'."
+    getParentContext: ->
+      @getAncestorContexts[0]
 
-class Parser
+  class BeforeEachNode extends Node
+    code: null
 
-  constructor: (props = {}) ->
-    @[key] = val for own key,val of props
+  class FileNode extends Node
+    path: null
+    data: null
 
-  isAssertionCode: (code) ->
-    /\b(expect|assert|should)\b/.test code
+  class AssertionNode extends Node
+    text: null
+    code: null
 
-  isAssertionNext: (tokens) ->
-    return false unless tokens.length > 1
-    {type, text} = tokens[1]
-    tokens[0].type is "paragraph" and type is "code" and @isAssertionCode text
+  class DepthError extends Error
+    headingToken: null
 
-  consumeNextAssertion: (contextNode, tokens) ->
-    [para, code] = tokens.splice 0, 2
-    contextNode.addAssertionNode text: para.text, code: code.text
+    constructor: (props = {}) ->
+      @[key] = val for own key, val of props
+      @name = @constructor.name
+      Error.captureStackTrace @, @constructor
+      @message = @getMessage()
 
-  isFileCode: (code) ->
-    /^.* file: "([^"]*)"/.test code
+    getMessage: ->
+      "Invalid heading depth (#{@heading.depth}) for heading '#{@heading.text}'."
 
-  isFileNext: (tokens) ->
-    return false unless tokens.length
-    {type, text} = tokens[0]
-    type is "code" and @isFileCode text
+  class Parser
+    nativeLanguages: null
+    assertionCodePatterns: null
+    fileCodePattern: null
 
-  consumeNextFile: (contextNode, tokens) ->
-    {text} = tokens.shift()
-    path = /^.*file: "([^"]*)"/.exec(text)[1]
-    data = text.split("\n").slice(2).join("\n")
-    contextNode.addFileNode path: path, data: data
+    constructor: (props = {}) ->
+      @[key] = val for own key, val of props
+      @nativeLanguages ?= []
+      @assertionCodePatterns ?= [/\b(assert|expect|should)\b/i]
+      @fileCodePattern ?= /^.* file: "([^"]*)"/
 
-  isBeforeEachNext: (tokens) ->
-    return false unless tokens.length
-    {type, text} = tokens[0]
-    type is "code" and !@isAssertionCode(text) and !@isFileCode(text)
+    isNativeCode: (code, lang) ->
+      !lang? or lang in @nativeLanguages
 
-  consumeNextBeforeEach: (contextNode, tokens) ->
-    code = tokens.shift()
-    contextNode.addBeforeEachNode code: code.text
+    isAssertionCode: (code, lang) ->
+      return false if !@isNativeCode(code, lang) or @isFileCode(code, lang)
+      @assertionCodePatterns.some (pattern) -> pattern.test(code)
 
-  getParentNode: (headingToken, rootNode, previousContextNode) ->
-    previousNode = (previousContextNode or rootNode)
-    depthDiff = previousNode.depth - headingToken.depth
+    isBeforeEachCode: (code, lang) ->
+      @isNativeCode(code, lang) and !@isFileCode(code, lang) and !@isAssertionCode(code, lang)
 
-    return previousNode if depthDiff is -1
-    return previousNode.ancestors[depthDiff] if depthDiff >= 0
-    throw new DepthError headingToken: headingToken, previousNode: previousNode
+    isFileCode: (code, lang) ->
+      @fileCodePattern.test code
 
-  parseContextChildTokens: (contextNode, tokens) ->
-    return contextNode unless tokens.length
+    getFilePath: (code) ->
+      @fileCodePattern.exec(code)[1]
 
-    switch
-      when @isAssertionNext(tokens) then @consumeNextAssertion(contextNode, tokens)
-      when @isFileNext(tokens) then @consumeNextFile(contextNode, tokens)
-      when @isBeforeEachNext(tokens) then @consumeNextBeforeEach(contextNode, tokens)
-      else tokens.shift()
+    getFileData: (code) ->
+      code.slice(code.indexOf("\n") + 1)
 
-    @parseContextChildTokens contextNode, tokens
+    isAssertionNext: (tokens) ->
+      return false unless tokens.length > 1
+      {type, text, lang} = tokens[1]
+      tokens[0].type is "paragraph" and type is "code" and @isAssertionCode(text, lang)
 
-  parse: (tokens, rootNode = (new RootNode), previousContextNode) ->
-    headingToken = tokens.find ({type}) -> type is "heading"
-    return rootNode unless headingToken?
+    consumeNextAssertion: (contextNode, tokens) ->
+      [para, code] = tokens.splice 0, 2
+      contextNode.addAssertionNode text: para.text, code: code.text
 
-    tokens = tokens.slice (tokens.indexOf(headingToken) + 1)
-    childTokens = do -> tokens.shift() while tokens.length and tokens[0].type isnt "heading"
+    isFileNext: (tokens) ->
+      return false unless tokens.length
+      {type, text, lang} = tokens[0]
+      type is "code" and @isFileCode(text, lang)
 
-    parentNode = @getParentNode headingToken, rootNode, previousContextNode
-    contextNode = parentNode.addContextNode text: headingToken.text
-    @parseContextChildTokens contextNode, childTokens
-    @parse tokens, rootNode, contextNode
+    consumeNextFile: (contextNode, tokens) ->
+      {text} = tokens.shift()
+      path = @getFilePath text
+      data = @getFileData text
+      contextNode.addFileNode path: path, data: data
 
-class Snippets
-  constructor: ->
-    @snippets = []
-    @indentationString = '  '
+    isBeforeEachNext: (tokens) ->
+      return false unless tokens.length
+      {type, text, lang} = tokens[0]
+      type is "code" and @isBeforeEachCode(text, lang)
 
-  indent: (code, depth) ->
-    indentation = [0...depth].map(=> @indentationString).join('')
-    code.replace /^/gm, indentation
+    consumeNextBeforeEach: (contextNode, tokens) ->
+      {text} = tokens.shift()
+      contextNode.addBeforeEachNode code: text
 
-  add: (code, depth = 0) ->
-    @snippets.push @indent(code, depth)
+    getParentNodeForHeading: (headingToken, parseTree, previousContextNode) ->
+      previousNode = (previousContextNode or parseTree)
+      depthDiff = previousNode.depth - headingToken.depth
+      return previousNode if depthDiff is -1
+      return previousNode.ancestors[depthDiff] if depthDiff >= 0
+      throw new DepthError headingToken: headingToken
 
-  compile: (joinStr = "\n\n") ->
-    @snippets.join(joinStr) + "\n"
+    parseContextChildTokens: (contextNode, tokens) ->
+      return contextNode unless tokens.length
 
-class JasmineCoffeeCompiler
+      switch
+        when @isAssertionNext(tokens) then @consumeNextAssertion(contextNode, tokens)
+        when @isFileNext(tokens) then @consumeNextFile(contextNode, tokens)
+        when @isBeforeEachNext(tokens) then @consumeNextBeforeEach(contextNode, tokens)
+        else tokens.shift()
 
-  compileFileNodes: (snippets, nodes) ->
-    return snippets unless nodes.length
+      @parseContextChildTokens contextNode, tokens
 
-    depth = nodes[0].depth
-    mockFsObject = nodes.reduce ((memo, {path, data}) -> memo[path] = data), {}
-    mockFsString = JSON.stringify mockFsObject, null, 2
+    parse: (tokens, parseTree = (new ParseTree), previousContextNode) ->
+      headingToken = tokens.find ({type}) -> type is "heading"
+      return parseTree unless headingToken?
 
-    snippets.add "beforeEach ->", depth
-    snippets.add "mockFsObject = #{mockFsString}", depth + 1
-    snippets.add "require('mock-fs')(mockFsObject)", depth + 1
-    snippets.add "afterEach ->", depth
-    snippets.add "require('mock-fs').restore()", depth + 1
-    snippets
+      parentNode = @getParentNodeForHeading headingToken, parseTree, previousContextNode
+      contextNode = parentNode.addContextNode text: headingToken.text
 
-  compileBeforeEachNodes: (snippets, nodes) ->
-    return snippets unless nodes.length
+      tokens = tokens.slice (tokens.indexOf(headingToken) + 1)
+      childTokens = do -> tokens.shift() while tokens.length and tokens[0].type isnt "heading"
 
-    depth = nodes[0].depth
-    snippets.add "beforeEach ->", depth
-    snippets.add node.code, depth + 1 for node in nodes
-    snippets
+      @parseContextChildTokens contextNode, childTokens
+      @parse tokens, parseTree, contextNode
 
-  compileAssertionNode: (snippets, node) ->
-    {depth, text, code} = node
-    snippets.add "it #{JSON.stringify(text)} ->", depth
-    snippets.add code, depth + 1
-    snippets
+  MarkdownDriven =
+    configuration: $
+    configure: configure
+    ParseTree: ParseTree
+    Node: Node
+    ContextNode: ContextNode
+    BeforeEachNode: BeforeEachNode
+    FileNode: FileNode
+    AssertionNode: AssertionNode
+    DepthError: DepthError
+    Parser: Parser
 
-  compileAssertionNodes: (snippets, nodes) ->
-    return snippets unless nodes.length
-    nodes.reduce @compileAssertionNode.bind(@), snippets
+module.exports = MarkdownDriven = configure()
 
-  compileContextNode: (snippets, node) ->
-    {text, depth} = node
-    snippets.add "describe #{JSON.stringify(text)} ->", depth
-    snippets = @compileBeforeEachNodes snippets, node.getBeforeEachNodes()
-    snippets = @compileFileNodes snippets, node.getFileNodes()
-    snippets = @compileAssertionNodes snippets, node.getAssertionNodes()
-    snippets = @compileContextNodes snippets, node.getContextNodes()
-    snippets
+unless module.parent?
 
-  compileContextNodes: (snippets, nodes) ->
-    return snippets unless nodes.length
-    nodes.reduce @compileContextNode.bind(@), snippets
-
-  compile: (rootNode) ->
-    snippets = @compileContextNodes new Snippets(), rootNode.getContextNodes()
-    snippets.compile()
-
-
-test = ->
+  parser = new MarkdownDriven.Parser
+    nativeLanguages: ["coffee"]
+    assertionCodePatterns: [/\b(assert|expect|should)\b/, /# =>/]
 
   markdown = require("fs").readFileSync("example.md").toString()
   tokens = require("marked").lexer markdown
-  parser = new Parser
-  rootNode = parser.parse tokens
-  compiler = new JasmineCoffeeCompiler
-  compiler.compile rootNode
+  parseTree = parser.parse tokens
 
-results = test()
-console.log results
+  console.log JSON.stringify(parseTree, null, 2)
