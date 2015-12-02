@@ -1,12 +1,10 @@
-configure = (configuration = {}) ->
+configure = ($ = {}) ->
 
-  $ = {}
-
-  $.reduceUnique = (arr, v) ->
+  $.reduceUnique ?= (arr, v) ->
     arr.push(v) if arr.indexOf(v) is -1
     arr
 
-  $[key] = val for own key, val of configuration
+  $.globalVariables ?= ["require", "jasmine"]
 
   class Snippets
     snippets: null
@@ -46,18 +44,14 @@ configure = (configuration = {}) ->
       token.value
 
     @convert: (csToken) ->
-      [type, value, {first_line, first_column, last_line, last_column}] = csToken
-      new CoffeeToken
-        type: type, value: value, variable: csToken.variable,
-        firstLine: first_line, firstColumn: first_column,
-        lastLine: last_line, lastColumn: last_column
+      new CoffeeToken type: csToken[0], value: csToken[1], variable: csToken.variable
 
   class CoffeeService
     globalVariables: null
 
     constructor: (props) ->
       @[key] = val for own key, val of props
-      @globalVariables ?= ["require", "jasmine"]
+      @globalVariables ?= $.globalVariables
 
     tokenize: (code) ->
       require('coffee-script').tokens(code).map CoffeeToken.convert
@@ -75,7 +69,6 @@ configure = (configuration = {}) ->
 
     constructor: (props = {}) ->
       @[key] = val for own key, val of props
-      @globalVariables ?= @constructor.GLOBAL_VARIABLES
       @coffeeService ?= new CoffeeService
 
     getContextVariableNames: (node) ->

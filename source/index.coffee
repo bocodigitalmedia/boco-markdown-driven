@@ -1,6 +1,7 @@
-configure = (configuration = {}) ->
-  $ = {}
-  $[key] = val for own key, val of configuration
+configure = ($ = {}) ->
+  $.lexer ?= new (require("marked").Lexer)
+  $.assertionCodePattern ?= /\b(assert|expect|should)\b/i
+  $.fileCodePattern ?= /^.* file: "([^"]*)"/
 
   class ParseTree
     contextNodes: null
@@ -28,10 +29,10 @@ configure = (configuration = {}) ->
         value: null, enumerable: false, writable: true
 
       Object.defineProperty @, "ancestors", enumerable: false, get: ->
-        do => node = this; node = node.parent while node.parent?
+        node = this; node = node.parent while node.parent?
 
       Object.defineProperty @, "depth", enumerable: true, get: ->
-        @ancestors.length
+        if @parent? then @parent.depth + 1 else 0
 
       @[key] = val for own key, val of props
       @type ?= @constructor.name
@@ -93,35 +94,41 @@ configure = (configuration = {}) ->
     text: null
     code: null
 
-  class DepthError extends Error
+  class InvalidHeadingDepth extends Error
     headingToken: null
 
     constructor: (props = {}) ->
-      @[key] = val for own key, val of props
-      @name = @constructor.name
       Error.captureStackTrace @, @constructor
+      @headingToken = props.headingToken
+      @name = @constructor.name
       @message = @getMessage()
 
     getMessage: ->
-      "Invalid heading depth (#{@heading.depth}) for heading '#{@heading.text}'."
+      "Invalid depth (#{@headingToken.depth}) for heading '#{@headingToken.text}'."
+
+  class NotImplemented extends Error
+    constructor: (message = "not implemented") ->
+      Error.captureStackTrace @, @constructor
+      @name = @constructor.name
+      @message = message
 
   class Parser
     nativeLanguages: null
-    assertionCodePatterns: null
+    assertionCodePattern: null
     fileCodePattern: null
 
     constructor: (props = {}) ->
       @[key] = val for own key, val of props
       @nativeLanguages ?= []
-      @assertionCodePatterns ?= [/\b(assert|expect|should)\b/i]
-      @fileCodePattern ?= /^.* file: "([^"]*)"/
+      @assertionCodePattern ?= $.assertionCodePattern
+      @fileCodePattern ?= $.fileCodePattern
 
     isNativeCode: (code, lang) ->
       !lang? or lang in @nativeLanguages
 
     isAssertionCode: (code, lang) ->
       return false if !@isNativeCode(code, lang) or @isFileCode(code, lang)
-      @assertionCodePatterns.some (pattern) -> pattern.test(code)
+      @assertionCodePattern.test code
 
     isBeforeEachCode: (code, lang) ->
       @isNativeCode(code, lang) and !@isFileCode(code, lang) and !@isAssertionCode(code, lang)
@@ -169,7 +176,7 @@ configure = (configuration = {}) ->
       depthDiff = previousNode.depth - headingToken.depth
       return previousNode if depthDiff is -1
       return previousNode.ancestors[depthDiff] if depthDiff >= 0
-      throw new DepthError headingToken: headingToken
+      throw new InvalidHeadingDepth headingToken: headingToken
 
     parseContextChildTokens: (contextNode, tokens) ->
       return contextNode unless tokens.length
@@ -195,28 +202,37 @@ configure = (configuration = {}) ->
       @parseContextChildTokens contextNode, childTokens
       @parse tokens, parseTree, contextNode
 
+  class Generator
+    generate: (parseTree) ->
+      throw new NotImplemented()
+
+  class Compiler
+    lexer: null
+    parser: null
+    generator: null
+
+    constructor: (props = {}) ->
+      @[key] = val for own key, val of props
+      @lexer ?= $.defaultLexer
+      @parser ?= new Parser
+      @generator ?= new Generator
+
+    compile: (markdown) ->
+      tokens = @lexer.lex markdown
+      parseTree = @parser.parse tokens
+      @generator.generate parseTree
+
   MarkdownDriven =
-    configuration: $
-    configure: configure
+    InvalidHeadingDepth: InvalidHeadingDepth
+    NotImplemented: NotImplemented
     ParseTree: ParseTree
     Node: Node
     ContextNode: ContextNode
     BeforeEachNode: BeforeEachNode
     FileNode: FileNode
     AssertionNode: AssertionNode
-    DepthError: DepthError
     Parser: Parser
+    Generator: Generator
+    Compiler: Compiler
 
-module.exports = MarkdownDriven = configure()
-
-unless module.parent?
-
-  parser = new MarkdownDriven.Parser
-    nativeLanguages: ["coffee"]
-    assertionCodePatterns: [/\b(assert|expect|should)\b/, /# =>/]
-
-  markdown = require("fs").readFileSync("example.md").toString()
-  tokens = require("marked").lexer markdown
-  parseTree = parser.parse tokens
-
-  console.log JSON.stringify(parseTree, null, 2)
+module.exports = configure()
