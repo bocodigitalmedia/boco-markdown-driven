@@ -213,7 +213,7 @@ configure = ($ = {}) ->
 
     constructor: (props = {}) ->
       @[key] = val for own key, val of props
-      @lexer ?= $.defaultLexer
+      @lexer ?= $.lexer
       @parser ?= new Parser
       @generator ?= new Generator
 
