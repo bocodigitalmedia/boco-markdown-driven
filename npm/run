@@ -15,7 +15,7 @@ clean-build-dir() {
 
 build() {
   build-source
-  build-specs
+  # build-specs
 }
 
 build-source() {
