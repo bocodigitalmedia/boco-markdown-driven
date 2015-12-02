@@ -5,7 +5,7 @@ var configure,
   indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
 
 configure = function($) {
-  var AssertionNode, BeforeEachNode, Compiler, ContextNode, FileNode, Generator, InvalidHeadingDepth, MarkdownDriven, Node, NotImplemented, ParseTree, Parser;
+  var AssertionNode, BeforeEachNode, CLI, Compiler, ContextNode, FileNode, Generator, InvalidHeadingDepth, MarkdownDriven, Node, NotImplemented, ParseTree, Parser;
   if ($ == null) {
     $ = {};
   }
@@ -460,7 +460,7 @@ configure = function($) {
         this[key] = val;
       }
       if (this.lexer == null) {
-        this.lexer = $.defaultLexer;
+        this.lexer = $.lexer;
       }
       if (this.parser == null) {
         this.parser = new Parser;
@@ -480,6 +480,54 @@ configure = function($) {
     return Compiler;
 
   })();
+  CLI = (function() {
+    CLI.prototype.compiler = null;
+
+    CLI.prototype.stdin = null;
+
+    CLI.prototype.stdout = null;
+
+    function CLI(props) {
+      var key, val;
+      if (props == null) {
+        props = {};
+      }
+      for (key in props) {
+        if (!hasProp.call(props, key)) continue;
+        val = props[key];
+        this[key] = val;
+      }
+      if (this.compiler == null) {
+        this.compiler = new Compiler;
+      }
+      if (this.stdin == null) {
+        this.stdin = process.stdin;
+      }
+      if (this.stdout == null) {
+        this.stdout = process.stdout;
+      }
+    }
+
+    CLI.prototype.run = function() {
+      var markdown;
+      markdown = '';
+      this.stdin.resume();
+      this.stdin.on("data", function(data) {
+        return markdown += data.toString();
+      });
+      return this.stdin.on("end", (function(_this) {
+        return function() {
+          var compiled;
+          compiled = _this.compiler.compile(markdown);
+          _this.stdout.write(compiled);
+          return process.exit(0);
+        };
+      })(this));
+    };
+
+    return CLI;
+
+  })();
   return MarkdownDriven = {
     InvalidHeadingDepth: InvalidHeadingDepth,
     NotImplemented: NotImplemented,
@@ -491,7 +539,8 @@ configure = function($) {
     AssertionNode: AssertionNode,
     Parser: Parser,
     Generator: Generator,
-    Compiler: Compiler
+    Compiler: Compiler,
+    CLI: CLI
   };
 };
 

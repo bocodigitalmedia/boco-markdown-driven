@@ -222,6 +222,29 @@ configure = ($ = {}) ->
       parseTree = @parser.parse tokens
       @generator.generate parseTree
 
+  class CLI
+    compiler: null
+    stdin: null
+    stdout: null
+
+    constructor: (props = {}) ->
+      @[key] = val for own key, val of props
+      @compiler ?= new Compiler
+      @stdin ?= process.stdin
+      @stdout ?= process.stdout
+
+    run: ->
+      markdown = ''
+      @stdin.resume()
+
+      @stdin.on "data", (data) ->
+        markdown += data.toString()
+
+      @stdin.on "end", =>
+        compiled = @compiler.compile markdown
+        @stdout.write compiled
+        process.exit 0
+
   MarkdownDriven =
     InvalidHeadingDepth: InvalidHeadingDepth
     NotImplemented: NotImplemented
@@ -234,5 +257,6 @@ configure = ($ = {}) ->
     Parser: Parser
     Generator: Generator
     Compiler: Compiler
+    CLI: CLI
 
 module.exports = configure()
