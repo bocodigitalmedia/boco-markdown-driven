@@ -1,7 +1,11 @@
 configure = ($ = {}) ->
-  $.lexer ?= new (require("marked").Lexer)
+  $.Path ?= require "path"
+  $.Marked ?= require "marked"
+  $.minimist ?= require "minimist"
+  $.lexer ?= new $.Marked.Lexer
   $.assertionCodePattern ?= /\b(assert|expect|should)\b/i
   $.fileCodePattern ?= /^.* file: "([^"]*)"/
+  $.converterSourceDir ?= $.Path.join process.cwd(), "docs"
 
   class ParseTree
     contextNodes: null
@@ -140,7 +144,7 @@ configure = ($ = {}) ->
       @fileCodePattern.exec(code)[1]
 
     getFileData: (code) ->
-      code.slice(code.indexOf("\n") + 1)
+      code.slice(code.indexOf("\n") + 1) + "\n"
 
     isAssertionNext: (tokens) ->
       return false unless tokens.length > 1
@@ -222,28 +226,69 @@ configure = ($ = {}) ->
       parseTree = @parser.parse tokens
       @generator.generate parseTree
 
+  class Converter
+    constructor: (props = {}) ->
+      @compiler = props.compiler
+
+    convert: ({dir, dest, sources}, done) ->
+      done()
+
   class CLI
-    compiler: null
+    converter: null
     stdin: null
     stdout: null
 
     constructor: (props = {}) ->
       @[key] = val for own key, val of props
-      @compiler ?= new Compiler
+      @converter ?= new Converter
       @stdin ?= process.stdin
       @stdout ?= process.stdout
 
-    run: ->
-      markdown = ''
-      @stdin.resume()
+    getCommandName: ->
+      $.Path.basename process.argv[1]
 
-      @stdin.on "data", (data) ->
-        markdown += data.toString()
+    getVersion: ->
+      require("../package.json").version
 
-      @stdin.on "end", =>
-        compiled = @compiler.compile markdown
-        @stdout.write compiled
-        process.exit 0
+    getHelp: ->
+      cmd = @getCommandName()
+      version = @getVersion()
+      """
+      MarkdownDriven v#{version}
+      Convert markdown documents specified by <sources...> to runnable specs.
+
+      Usage: #{cmd} [options] <sources...>
+  
+      options:
+        --dir=dir      The base directory containing <sources...>
+        --dest=dest    The destination directory for writing files
+        --help         Show this help screen
+
+      example:
+        #{cmd} --dir=docs --dest=specs **/*.md
+
+      """
+
+    showHelp: (code = 0) ->
+      @stdout.write @getHelp()
+      process.exit code
+
+    getParameters: (args) ->
+      argv = $.minimist args, string: ["dir", "dest"], boolean: true
+      return @showHelp(1) unless argv._?.length
+
+      help: argv.help
+      dir: argv.dir
+      dest: argv.dest
+      sources: argv._
+
+    run: (args = process.argv.slice(2)) ->
+      params = @getParameters args
+      return @showHelp(0) if params.help
+
+      @converter.convert params, (error) =>
+        return @showHelp(1) if error?
+        process.exit(0)
 
   MarkdownDriven =
     InvalidHeadingDepth: InvalidHeadingDepth
@@ -257,6 +302,7 @@ configure = ($ = {}) ->
     Parser: Parser
     Generator: Generator
     Compiler: Compiler
+    Converter: Converter
     CLI: CLI
 
 module.exports = configure()

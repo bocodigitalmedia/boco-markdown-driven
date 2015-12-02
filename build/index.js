@@ -5,18 +5,30 @@ var configure,
   indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
 
 configure = function($) {
-  var AssertionNode, BeforeEachNode, CLI, Compiler, ContextNode, FileNode, Generator, InvalidHeadingDepth, MarkdownDriven, Node, NotImplemented, ParseTree, Parser;
+  var AssertionNode, BeforeEachNode, CLI, Compiler, ContextNode, Converter, FileNode, Generator, InvalidHeadingDepth, MarkdownDriven, Node, NotImplemented, ParseTree, Parser;
   if ($ == null) {
     $ = {};
   }
+  if ($.Path == null) {
+    $.Path = require("path");
+  }
+  if ($.Marked == null) {
+    $.Marked = require("marked");
+  }
+  if ($.minimist == null) {
+    $.minimist = require("minimist");
+  }
   if ($.lexer == null) {
-    $.lexer = new (require("marked").Lexer);
+    $.lexer = new $.Marked.Lexer;
   }
   if ($.assertionCodePattern == null) {
     $.assertionCodePattern = /\b(assert|expect|should)\b/i;
   }
   if ($.fileCodePattern == null) {
     $.fileCodePattern = /^.* file: "([^"]*)"/;
+  }
+  if ($.converterSourceDir == null) {
+    $.converterSourceDir = $.Path.join(process.cwd(), "docs");
   }
   ParseTree = (function() {
     ParseTree.prototype.contextNodes = null;
@@ -306,7 +318,7 @@ configure = function($) {
     };
 
     Parser.prototype.getFileData = function(code) {
-      return code.slice(code.indexOf("\n") + 1);
+      return code.slice(code.indexOf("\n") + 1) + "\n";
     };
 
     Parser.prototype.isAssertionNext = function(tokens) {
@@ -480,8 +492,25 @@ configure = function($) {
     return Compiler;
 
   })();
+  Converter = (function() {
+    function Converter(props) {
+      if (props == null) {
+        props = {};
+      }
+      this.compiler = props.compiler;
+    }
+
+    Converter.prototype.convert = function(arg, done) {
+      var dest, dir, sources;
+      dir = arg.dir, dest = arg.dest, sources = arg.sources;
+      return done();
+    };
+
+    return Converter;
+
+  })();
   CLI = (function() {
-    CLI.prototype.compiler = null;
+    CLI.prototype.converter = null;
 
     CLI.prototype.stdin = null;
 
@@ -497,8 +526,8 @@ configure = function($) {
         val = props[key];
         this[key] = val;
       }
-      if (this.compiler == null) {
-        this.compiler = new Compiler;
+      if (this.converter == null) {
+        this.converter = new Converter;
       }
       if (this.stdin == null) {
         this.stdin = process.stdin;
@@ -508,18 +537,60 @@ configure = function($) {
       }
     }
 
-    CLI.prototype.run = function() {
-      var markdown;
-      markdown = '';
-      this.stdin.resume();
-      this.stdin.on("data", function(data) {
-        return markdown += data.toString();
+    CLI.prototype.getCommandName = function() {
+      return $.Path.basename(process.argv[1]);
+    };
+
+    CLI.prototype.getVersion = function() {
+      return require("../package.json").version;
+    };
+
+    CLI.prototype.getHelp = function() {
+      var cmd, version;
+      cmd = this.getCommandName();
+      version = this.getVersion();
+      return "MarkdownDriven v" + version + "\nConvert markdown documents specified by <sources...> to runnable specs.\n\nUsage: " + cmd + " [options] <sources...>\n  \noptions:\n  --dir=dir      The base directory containing <sources...>\n  --dest=dest    The destination directory for writing files\n  --help         Show this help screen\n\nexample:\n  " + cmd + " --dir=docs --dest=specs **/*.md\n";
+    };
+
+    CLI.prototype.showHelp = function(code) {
+      if (code == null) {
+        code = 0;
+      }
+      this.stdout.write(this.getHelp());
+      return process.exit(code);
+    };
+
+    CLI.prototype.getParameters = function(args) {
+      var argv, ref;
+      argv = $.minimist(args, {
+        string: ["dir", "dest"],
+        boolean: true
       });
-      return this.stdin.on("end", (function(_this) {
-        return function() {
-          var compiled;
-          compiled = _this.compiler.compile(markdown);
-          _this.stdout.write(compiled);
+      if (!((ref = argv._) != null ? ref.length : void 0)) {
+        return this.showHelp(1);
+      }
+      return {
+        help: argv.help,
+        dir: argv.dir,
+        dest: argv.dest,
+        sources: argv._
+      };
+    };
+
+    CLI.prototype.run = function(args) {
+      var params;
+      if (args == null) {
+        args = process.argv.slice(2);
+      }
+      params = this.getParameters(args);
+      if (params.help) {
+        return this.showHelp(0);
+      }
+      return this.converter.convert(params, (function(_this) {
+        return function(error) {
+          if (error != null) {
+            return _this.showHelp(1);
+          }
           return process.exit(0);
         };
       })(this));
@@ -540,6 +611,7 @@ configure = function($) {
     Parser: Parser,
     Generator: Generator,
     Compiler: Compiler,
+    Converter: Converter,
     CLI: CLI
   };
 };
