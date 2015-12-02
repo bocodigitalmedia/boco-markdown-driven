@@ -11,6 +11,7 @@
   "author": "Christian Bradley <christianbradley@gmail.com> (https://github.com/christianbradley)",
   "license": "ISC",
   "dependencies": {
+    "async": "^1.5.0",
     "glob": "^5.0.15",
     "marked": "^0.3.5",
     "minimist": "^1.2.0"

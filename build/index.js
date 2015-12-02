@@ -9,14 +9,32 @@ configure = function($) {
   if ($ == null) {
     $ = {};
   }
+  if ($.require == null) {
+    $.require = require;
+  }
   if ($.Path == null) {
-    $.Path = require("path");
+    $.Path = $.require("path");
   }
   if ($.Marked == null) {
-    $.Marked = require("marked");
+    $.Marked = $.require("marked");
   }
-  if ($.minimist == null) {
-    $.minimist = require("minimist");
+  if ($.Async == null) {
+    $.Async = $.require("async");
+  }
+  if ($.FileSystem == null) {
+    $.FileSystem = $.require("fs");
+  }
+  if ($.Minimist == null) {
+    $.Minimist = $.require("minimist");
+  }
+  if ($.Glob == null) {
+    $.Glob = $.require("glob");
+  }
+  if ($["package"] == null) {
+    $["package"] = $.require("../package.json");
+  }
+  if ($.process == null) {
+    $.process = process;
   }
   if ($.lexer == null) {
     $.lexer = new $.Marked.Lexer;
@@ -27,8 +45,26 @@ configure = function($) {
   if ($.fileCodePattern == null) {
     $.fileCodePattern = /^.* file: "([^"]*)"/;
   }
-  if ($.converterSourceDir == null) {
-    $.converterSourceDir = $.Path.join(process.cwd(), "docs");
+  if ($.writeExt == null) {
+    $.writeExt = ".mdd";
+  }
+  if ($.cwd == null) {
+    $.cwd = $.process.cwd();
+  }
+  if ($.argv == null) {
+    $.argv = $.process.argv;
+  }
+  if ($.stdin == null) {
+    $.stdin = $.process.stdin;
+  }
+  if ($.stdout == null) {
+    $.stdout = $.process.stdout;
+  }
+  if ($.readDir == null) {
+    $.readDir = "docs";
+  }
+  if ($.writeDir == null) {
+    $.writeDir = "spec";
   }
   ParseTree = (function() {
     ParseTree.prototype.contextNodes = null;
@@ -493,17 +529,65 @@ configure = function($) {
 
   })();
   Converter = (function() {
+    Converter.prototype.compiler = null;
+
+    Converter.prototype.writeExt = null;
+
     function Converter(props) {
+      var key, val;
       if (props == null) {
         props = {};
       }
-      this.compiler = props.compiler;
+      for (key in props) {
+        if (!hasProp.call(props, key)) continue;
+        val = props[key];
+        this[key] = val;
+      }
+      if (this.compiler == null) {
+        this.compiler = new Compiler;
+      }
+      if (this.writeExt == null) {
+        this.writeExt = $.writeExt;
+      }
     }
 
-    Converter.prototype.convert = function(arg, done) {
-      var dest, dir, sources;
-      dir = arg.dir, dest = arg.dest, sources = arg.sources;
-      return done();
+    Converter.prototype.readFile = function(path, done) {
+      return $.FileSystem.readFile(path, done);
+    };
+
+    Converter.prototype.writeFile = function(path, data, done) {
+      return $.FileSystem.writeFile(path, data, done);
+    };
+
+    Converter.prototype.getWritePath = function(readPath, arg) {
+      var basename, cwd, dirname, filename, writeDir, writeExt;
+      cwd = arg.cwd, writeDir = arg.writeDir, writeExt = arg.writeExt;
+      dirname = $.Path.dirname(readPath);
+      basename = $.Path.basename(readPath);
+      filename = basename.split(".")[0] + writeExt;
+      return $.Path.resolve(cwd, writeDir, filename);
+    };
+
+    Converter.prototype.convertPath = function(readPath, options, done) {
+      return this.readFile(readPath, (function(_this) {
+        return function(error, data) {
+          var compiled, writePath;
+          if (error != null) {
+            return done(error);
+          }
+          compiled = _this.compiler.compile(data.toString());
+          writePath = _this.getWritePath(readPath, options);
+          return _this.writeFile(writePath, compiled, done);
+        };
+      })(this));
+    };
+
+    Converter.prototype.convert = function(paths, options, done) {
+      return $.Async.eachSeries(paths, (function(_this) {
+        return function(path, done) {
+          return _this.convertPath(path, options, done);
+        };
+      })(this));
     };
 
     return Converter;
@@ -530,26 +614,26 @@ configure = function($) {
         this.converter = new Converter;
       }
       if (this.stdin == null) {
-        this.stdin = process.stdin;
+        this.stdin = $.stdin;
       }
       if (this.stdout == null) {
-        this.stdout = process.stdout;
+        this.stdout = $.stdout;
       }
     }
 
     CLI.prototype.getCommandName = function() {
-      return $.Path.basename(process.argv[1]);
+      return $.Path.basename($.argv[1]);
     };
 
     CLI.prototype.getVersion = function() {
-      return require("../package.json").version;
+      return $["package"].version;
     };
 
     CLI.prototype.getHelp = function() {
       var cmd, version;
       cmd = this.getCommandName();
       version = this.getVersion();
-      return "MarkdownDriven v" + version + "\nConvert markdown documents specified by <sources...> to runnable specs.\n\nUsage: " + cmd + " [options] <sources...>\n  \noptions:\n  --dir=dir      The base directory containing <sources...>\n  --dest=dest    The destination directory for writing files\n  --help         Show this help screen\n\nexample:\n  " + cmd + " --dir=docs --dest=specs **/*.md\n";
+      return "MarkdownDriven v" + version + "\nConvert markdown documents to runnable specs.\n\nUsage: " + cmd + " [options] <paths...>\n\noptions:\n  --cwd=dir         The current working directory\n  --readDir=dir     The base directory containing <paths...>\n  --writeDir=dir    The destination directory for writing files\n  --writeExt=ext    The extension to use when writing files\n  --help            Show this help screen\n\ndefaults:\n  cwd: \"" + $.cwd + "\"\n  readDir: \"" + $.readDir + "\"\n  writeDir: \"" + $.writeDir + "\"\n  writeExt: \"" + $.writeExt + "\"\n\nexample:\n  " + cmd + " --readDir=docs --destDir=specs --writeExt=\".spec.js\" docs/**/*.md";
     };
 
     CLI.prototype.showHelp = function(code) {
@@ -557,41 +641,44 @@ configure = function($) {
         code = 0;
       }
       this.stdout.write(this.getHelp());
-      return process.exit(code);
+      return $.process.exit(code);
     };
 
     CLI.prototype.getParameters = function(args) {
-      var argv, ref;
-      argv = $.minimist(args, {
-        string: ["dir", "dest"],
-        boolean: true
+      var argv, params, ref, ref1, ref2, ref3;
+      argv = $.Minimist(args, {
+        boolean: ["help"]
       });
-      if (!((ref = argv._) != null ? ref.length : void 0)) {
-        return this.showHelp(1);
-      }
-      return {
+      return params = {
         help: argv.help,
-        dir: argv.dir,
-        dest: argv.dest,
-        sources: argv._
+        paths: argv._,
+        options: {
+          cwd: (ref = argv.cwd) != null ? ref : $.cwd,
+          readDir: (ref1 = argv.readDir) != null ? ref1 : $.readDir,
+          writeDir: (ref2 = argv.writeDir) != null ? ref2 : $.writeDir,
+          writeExt: (ref3 = argv.writeExt) != null ? ref3 : $.writeExt
+        }
       };
     };
 
     CLI.prototype.run = function(args) {
-      var params;
+      var help, options, paths, ref;
       if (args == null) {
-        args = process.argv.slice(2);
+        args = $.argv.slice(2);
       }
-      params = this.getParameters(args);
-      if (params.help) {
+      ref = this.getParameters(args), help = ref.help, paths = ref.paths, options = ref.options;
+      if (!!help) {
         return this.showHelp(0);
       }
-      return this.converter.convert(params, (function(_this) {
+      if (!(paths != null ? paths.length : void 0)) {
+        return this.showHelp(1);
+      }
+      return this.converter.convert(paths, options, (function(_this) {
         return function(error) {
           if (error != null) {
-            return _this.showHelp(1);
+            throw error;
           }
-          return process.exit(0);
+          return $.process.exit(0);
         };
       })(this));
     };
@@ -600,6 +687,8 @@ configure = function($) {
 
   })();
   return MarkdownDriven = {
+    configuration: $,
+    configure: configure,
     InvalidHeadingDepth: InvalidHeadingDepth,
     NotImplemented: NotImplemented,
     ParseTree: ParseTree,

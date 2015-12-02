@@ -1,11 +1,23 @@
 configure = ($ = {}) ->
-  $.Path ?= require "path"
-  $.Marked ?= require "marked"
-  $.minimist ?= require "minimist"
+  $.require ?= require
+  $.Path ?= $.require "path"
+  $.Marked ?= $.require "marked"
+  $.Async ?= $.require "async"
+  $.FileSystem ?= $.require "fs"
+  $.Minimist ?= $.require "minimist"
+  $.Glob ?= $.require "glob"
+  $.package ?= $.require "../package.json"
+  $.process ?= process
   $.lexer ?= new $.Marked.Lexer
   $.assertionCodePattern ?= /\b(assert|expect|should)\b/i
   $.fileCodePattern ?= /^.* file: "([^"]*)"/
-  $.converterSourceDir ?= $.Path.join process.cwd(), "docs"
+  $.writeExt ?= ".mdd"
+  $.cwd ?= $.process.cwd()
+  $.argv ?= $.process.argv
+  $.stdin ?= $.process.stdin
+  $.stdout ?= $.process.stdout
+  $.readDir ?= "docs"
+  $.writeDir ?= "spec"
 
   class ParseTree
     contextNodes: null
@@ -227,11 +239,36 @@ configure = ($ = {}) ->
       @generator.generate parseTree
 
   class Converter
-    constructor: (props = {}) ->
-      @compiler = props.compiler
+    compiler: null
+    writeExt: null
 
-    convert: ({dir, dest, sources}, done) ->
-      done()
+    constructor: (props = {}) ->
+      @[key] = val for own key, val of props
+      @compiler ?= new Compiler
+      @writeExt ?= $.writeExt
+
+    readFile: (path, done) ->
+      $.FileSystem.readFile path, done
+
+    writeFile: (path, data, done) ->
+      $.FileSystem.writeFile path, data, done
+
+    getWritePath: (readPath, {cwd, writeDir, writeExt}) ->
+      dirname = $.Path.dirname readPath
+      basename = $.Path.basename readPath
+      filename = basename.split(".")[0] + writeExt
+      $.Path.resolve cwd, writeDir, filename
+
+    convertPath: (readPath, options, done) ->
+      @readFile readPath, (error, data) =>
+        return done error if error?
+        compiled = @compiler.compile data.toString()
+        writePath = @getWritePath readPath, options
+        @writeFile writePath, compiled, done
+
+    convert: (paths, options, done) ->
+      $.Async.eachSeries paths, (path, done) =>
+        @convertPath path, options, done
 
   class CLI
     converter: null
@@ -241,56 +278,69 @@ configure = ($ = {}) ->
     constructor: (props = {}) ->
       @[key] = val for own key, val of props
       @converter ?= new Converter
-      @stdin ?= process.stdin
-      @stdout ?= process.stdout
+      @stdin ?= $.stdin
+      @stdout ?= $.stdout
 
     getCommandName: ->
-      $.Path.basename process.argv[1]
+      $.Path.basename $.argv[1]
 
     getVersion: ->
-      require("../package.json").version
+      $.package.version
 
     getHelp: ->
       cmd = @getCommandName()
       version = @getVersion()
+
       """
       MarkdownDriven v#{version}
-      Convert markdown documents specified by <sources...> to runnable specs.
+      Convert markdown documents to runnable specs.
 
-      Usage: #{cmd} [options] <sources...>
-  
+      Usage: #{cmd} [options] <paths...>
+
       options:
-        --dir=dir      The base directory containing <sources...>
-        --dest=dest    The destination directory for writing files
-        --help         Show this help screen
+        --cwd=dir         The current working directory
+        --readDir=dir     The base directory containing <paths...>
+        --writeDir=dir    The destination directory for writing files
+        --writeExt=ext    The extension to use when writing files
+        --help            Show this help screen
+
+      defaults:
+        cwd: "#{$.cwd}"
+        readDir: "#{$.readDir}"
+        writeDir: "#{$.writeDir}"
+        writeExt: "#{$.writeExt}"
 
       example:
-        #{cmd} --dir=docs --dest=specs **/*.md
-
+        #{cmd} --readDir=docs --destDir=specs --writeExt=".spec.js" docs/**/*.md
       """
 
     showHelp: (code = 0) ->
       @stdout.write @getHelp()
-      process.exit code
+      $.process.exit code
 
     getParameters: (args) ->
-      argv = $.minimist args, string: ["dir", "dest"], boolean: true
-      return @showHelp(1) unless argv._?.length
+      argv = $.Minimist args, boolean: ["help"]
+      params =
+        help: argv.help
+        paths: argv._
+        options:
+          cwd: argv.cwd ? $.cwd
+          readDir: argv.readDir ? $.readDir
+          writeDir: argv.writeDir ? $.writeDir
+          writeExt: argv.writeExt ? $.writeExt
 
-      help: argv.help
-      dir: argv.dir
-      dest: argv.dest
-      sources: argv._
+    run: (args = $.argv.slice(2)) ->
+      {help, paths, options} = @getParameters args
+      return @showHelp(0) if !!(help)
+      return @showHelp(1) unless !!(paths?.length)
 
-    run: (args = process.argv.slice(2)) ->
-      params = @getParameters args
-      return @showHelp(0) if params.help
-
-      @converter.convert params, (error) =>
-        return @showHelp(1) if error?
-        process.exit(0)
+      @converter.convert paths, options, (error) =>
+        throw error if error?
+        $.process.exit(0)
 
   MarkdownDriven =
+    configuration: $
+    configure: configure
     InvalidHeadingDepth: InvalidHeadingDepth
     NotImplemented: NotImplemented
     ParseTree: ParseTree
