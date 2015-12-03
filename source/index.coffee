@@ -3,9 +3,9 @@ configure = ($ = {}) ->
   $.Path ?= $.require "path"
   $.Marked ?= $.require "marked"
   $.Async ?= $.require "async"
+  $.Glob ?= $.require "glob"
   $.FileSystem ?= $.require "fs"
   $.Minimist ?= $.require "minimist"
-  $.Glob ?= $.require "glob"
   $.package ?= $.require "../package.json"
   $.process ?= process
   $.lexer ?= new $.Marked.Lexer
@@ -240,12 +240,24 @@ configure = ($ = {}) ->
 
   class Converter
     compiler: null
+    cwd: null
+    readDir: null
+    writeDir: null
     writeExt: null
 
     constructor: (props = {}) ->
       @[key] = val for own key, val of props
       @compiler ?= new Compiler
+      @cwd ?= $.cwd
+      @readDir ?= $.readDir
+      @writeDir ?= $.writeDir
       @writeExt ?= $.writeExt
+
+    constructOptions: (options = {}) ->
+      cwd: $.Path.resolve(options.cwd ? @cwd)
+      readDir: options.readDir ? @readDir
+      writeDir: options.writeDir ? @writeDir
+      writeExt: options.writeExt ? @writeExt
 
     readFile: (path, done) ->
       $.FileSystem.readFile path, done
@@ -266,9 +278,22 @@ configure = ($ = {}) ->
         writePath = @getWritePath readPath, options
         @writeFile writePath, compiled, done
 
-    convert: (paths, options, done) ->
+    convertPaths: (paths, options, done) ->
       $.Async.eachSeries paths, (path, done) =>
         @convertPath path, options, done
+
+    convertSource: (source, options, done) ->
+      $.Glob source, cwd: options.cwd, (error, paths) =>
+        return done error if error?
+        @convertPaths paths, options, done
+
+    convertSources: (sources, options, done) ->
+      $.Async.eachSeries sources, (source, done) =>
+        @convertSource source, options, done
+
+    convert: (sources, options, done) ->
+      options = @constructOptions options
+      @convertSources sources, options, done
 
   class CLI
     converter: null
@@ -290,12 +315,13 @@ configure = ($ = {}) ->
     getHelp: ->
       cmd = @getCommandName()
       version = @getVersion()
+      {cwd, readDir, writeDir, writeExt} = @converter
 
       """
       MarkdownDriven v#{version}
       Convert markdown documents to runnable specs.
 
-      Usage: #{cmd} [options] <paths...>
+      Usage: #{cmd} [options] <sources...>
 
       options:
         --cwd=dir         The current working directory
@@ -305,13 +331,14 @@ configure = ($ = {}) ->
         --help            Show this help screen
 
       defaults:
-        cwd: "#{$.cwd}"
-        readDir: "#{$.readDir}"
-        writeDir: "#{$.writeDir}"
-        writeExt: "#{$.writeExt}"
+        cwd: "#{cwd}"
+        readDir: "#{readDir}"
+        writeDir: "#{writeDir}"
+        writeExt: "#{writeExt}"
 
       example:
-        #{cmd} --readDir=docs --destDir=specs --writeExt=".spec.js" docs/**/*.md
+        #{cmd} --readDir=docs --writeDir=specs --writeExt=".spec.js" "docs/**/*.md"
+
       """
 
     showHelp: (code = 0) ->
@@ -324,10 +351,10 @@ configure = ($ = {}) ->
         help: argv.help
         paths: argv._
         options:
-          cwd: argv.cwd ? $.cwd
-          readDir: argv.readDir ? $.readDir
-          writeDir: argv.writeDir ? $.writeDir
-          writeExt: argv.writeExt ? $.writeExt
+          cwd: argv.cwd
+          readDir: argv.readDir
+          writeDir: argv.writeDir
+          writeExt: argv.writeExt
 
     run: (args = $.argv.slice(2)) ->
       {help, paths, options} = @getParameters args

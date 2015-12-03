@@ -21,14 +21,14 @@ configure = function($) {
   if ($.Async == null) {
     $.Async = $.require("async");
   }
+  if ($.Glob == null) {
+    $.Glob = $.require("glob");
+  }
   if ($.FileSystem == null) {
     $.FileSystem = $.require("fs");
   }
   if ($.Minimist == null) {
     $.Minimist = $.require("minimist");
-  }
-  if ($.Glob == null) {
-    $.Glob = $.require("glob");
   }
   if ($["package"] == null) {
     $["package"] = $.require("../package.json");
@@ -531,6 +531,12 @@ configure = function($) {
   Converter = (function() {
     Converter.prototype.compiler = null;
 
+    Converter.prototype.cwd = null;
+
+    Converter.prototype.readDir = null;
+
+    Converter.prototype.writeDir = null;
+
     Converter.prototype.writeExt = null;
 
     function Converter(props) {
@@ -546,10 +552,32 @@ configure = function($) {
       if (this.compiler == null) {
         this.compiler = new Compiler;
       }
+      if (this.cwd == null) {
+        this.cwd = $.cwd;
+      }
+      if (this.readDir == null) {
+        this.readDir = $.readDir;
+      }
+      if (this.writeDir == null) {
+        this.writeDir = $.writeDir;
+      }
       if (this.writeExt == null) {
         this.writeExt = $.writeExt;
       }
     }
+
+    Converter.prototype.constructOptions = function(options) {
+      var ref, ref1, ref2, ref3;
+      if (options == null) {
+        options = {};
+      }
+      return {
+        cwd: $.Path.resolve((ref = options.cwd) != null ? ref : this.cwd),
+        readDir: (ref1 = options.readDir) != null ? ref1 : this.readDir,
+        writeDir: (ref2 = options.writeDir) != null ? ref2 : this.writeDir,
+        writeExt: (ref3 = options.writeExt) != null ? ref3 : this.writeExt
+      };
+    };
 
     Converter.prototype.readFile = function(path, done) {
       return $.FileSystem.readFile(path, done);
@@ -582,12 +610,38 @@ configure = function($) {
       })(this));
     };
 
-    Converter.prototype.convert = function(paths, options, done) {
+    Converter.prototype.convertPaths = function(paths, options, done) {
       return $.Async.eachSeries(paths, (function(_this) {
         return function(path, done) {
           return _this.convertPath(path, options, done);
         };
       })(this));
+    };
+
+    Converter.prototype.convertSource = function(source, options, done) {
+      return $.Glob(source, {
+        cwd: options.cwd
+      }, (function(_this) {
+        return function(error, paths) {
+          if (error != null) {
+            return done(error);
+          }
+          return _this.convertPaths(paths, options, done);
+        };
+      })(this));
+    };
+
+    Converter.prototype.convertSources = function(sources, options, done) {
+      return $.Async.eachSeries(sources, (function(_this) {
+        return function(source, done) {
+          return _this.convertSource(source, options, done);
+        };
+      })(this));
+    };
+
+    Converter.prototype.convert = function(sources, options, done) {
+      options = this.constructOptions(options);
+      return this.convertSources(sources, options, done);
     };
 
     return Converter;
@@ -630,10 +684,11 @@ configure = function($) {
     };
 
     CLI.prototype.getHelp = function() {
-      var cmd, version;
+      var cmd, cwd, readDir, ref, version, writeDir, writeExt;
       cmd = this.getCommandName();
       version = this.getVersion();
-      return "MarkdownDriven v" + version + "\nConvert markdown documents to runnable specs.\n\nUsage: " + cmd + " [options] <paths...>\n\noptions:\n  --cwd=dir         The current working directory\n  --readDir=dir     The base directory containing <paths...>\n  --writeDir=dir    The destination directory for writing files\n  --writeExt=ext    The extension to use when writing files\n  --help            Show this help screen\n\ndefaults:\n  cwd: \"" + $.cwd + "\"\n  readDir: \"" + $.readDir + "\"\n  writeDir: \"" + $.writeDir + "\"\n  writeExt: \"" + $.writeExt + "\"\n\nexample:\n  " + cmd + " --readDir=docs --destDir=specs --writeExt=\".spec.js\" docs/**/*.md";
+      ref = this.converter, cwd = ref.cwd, readDir = ref.readDir, writeDir = ref.writeDir, writeExt = ref.writeExt;
+      return "MarkdownDriven v" + version + "\nConvert markdown documents to runnable specs.\n\nUsage: " + cmd + " [options] <sources...>\n\noptions:\n  --cwd=dir         The current working directory\n  --readDir=dir     The base directory containing <paths...>\n  --writeDir=dir    The destination directory for writing files\n  --writeExt=ext    The extension to use when writing files\n  --help            Show this help screen\n\ndefaults:\n  cwd: \"" + cwd + "\"\n  readDir: \"" + readDir + "\"\n  writeDir: \"" + writeDir + "\"\n  writeExt: \"" + writeExt + "\"\n\nexample:\n  " + cmd + " --readDir=docs --writeDir=specs --writeExt=\".spec.js\" \"docs/**/*.md\"\n";
     };
 
     CLI.prototype.showHelp = function(code) {
@@ -645,7 +700,7 @@ configure = function($) {
     };
 
     CLI.prototype.getParameters = function(args) {
-      var argv, params, ref, ref1, ref2, ref3;
+      var argv, params;
       argv = $.Minimist(args, {
         boolean: ["help"]
       });
@@ -653,10 +708,10 @@ configure = function($) {
         help: argv.help,
         paths: argv._,
         options: {
-          cwd: (ref = argv.cwd) != null ? ref : $.cwd,
-          readDir: (ref1 = argv.readDir) != null ? ref1 : $.readDir,
-          writeDir: (ref2 = argv.writeDir) != null ? ref2 : $.writeDir,
-          writeExt: (ref3 = argv.writeExt) != null ? ref3 : $.writeExt
+          cwd: argv.cwd,
+          readDir: argv.readDir,
+          writeDir: argv.writeDir,
+          writeExt: argv.writeExt
         }
       };
     };
