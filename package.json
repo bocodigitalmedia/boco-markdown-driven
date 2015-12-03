@@ -2,7 +2,7 @@
   "name": "boco-markdown-driven",
   "version": "0.2.2",
   "description": "Markdown Driven Development",
-  "main": "boco-markdown-driven/index.js",
+  "main": "build/index.js",
   "scripts": {
     "test": "./npm/test",
     "preversion": "./npm/run clean build && npm test",
