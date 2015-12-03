@@ -9,7 +9,7 @@
     "build": "./npm/run clean build"
   },
   "author": "Christian Bradley <christianbradley@gmail.com> (https://github.com/christianbradley)",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "async": "^1.5.0",
     "glob": "^6.0.1",
@@ -18,5 +18,31 @@
   },
   "devDependencies": {
     "coffee-script": "^1.10.0"
-  }
+  },
+  "directories": {
+    "doc": "docs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bocodigitalmedia/boco-markdown-driven.git"
+  },
+  "keywords": [
+    "markdown",
+    "driven",
+    "mdd",
+    "documentation",
+    "documentation-driven",
+    "markdown-driven",
+    "spec",
+    "specs",
+    "test",
+    "tests",
+    "testing",
+    "tdd",
+    "test-driven-development"
+  ],
+  "bugs": {
+    "url": "https://github.com/bocodigitalmedia/boco-markdown-driven/issues"
+  },
+  "homepage": "https://github.com/bocodigitalmedia/boco-markdown-driven#readme"
 }

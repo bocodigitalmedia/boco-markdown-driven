@@ -2,6 +2,7 @@
 DIR="$(cd "$(dirname "$0")" && pwd)"
 coffee="$DIR/../node_modules/.bin/coffee"
 source_dir="$DIR/../source"
+docs_dir="$DIR/../docs"
 build_dir="$DIR/../build"
 npm_dir="$DIR/.."
 
@@ -15,11 +16,17 @@ clean-build-dir() {
 
 build() {
   build-source
-  # build-specs
+  build-readme
 }
 
 build-source() {
   $coffee -cmb -o $build_dir $source_dir
+}
+
+build-readme() {
+  cat $docs_dir/MarkdownDriven.coffee.md > $npm_dir/README.md
+  echo -e "\n--------------------------------------------------------------------------------\n" >> $npm_dir/README.md
+  cat $npm_dir/LICENSE.md >> $npm_dir/README.md
 }
 
 build-specs() {
