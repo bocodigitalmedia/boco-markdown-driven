@@ -1,1 +1,0 @@
-describe "boco-markdown-driven", ->

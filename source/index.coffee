@@ -1,346 +1,385 @@
 configure = ($ = {}) ->
+  $.require ?= require
+  $.Path ?= $.require "path"
+  $.Marked ?= $.require "marked"
+  $.Async ?= $.require "async"
+  $.Glob ?= $.require "glob"
+  $.FileSystem ?= $.require "fs"
+  $.Minimist ?= $.require "minimist"
+  $.package ?= $.require "../package.json"
+  $.process ?= process
+  $.lexer ?= new $.Marked.Lexer
+  $.assertionCodePattern ?= /\b(assert|expect|should)\b/i
+  $.fileCodePattern ?= /^.* file: "([^"]*)"/
+  $.writeExt ?= ".mdd"
+  $.cwd ?= $.process.cwd()
+  $.argv ?= $.process.argv
+  $.stdin ?= $.process.stdin
+  $.stdout ?= $.process.stdout
+  $.readDir ?= "docs"
+  $.writeDir ?= "spec"
 
-  $.assign ?= (target, source) ->
-    target[key] = val for own key, val of source
+  class ParseTree
+    contextNodes: null
+    depth: null
 
-  $.require ?= (path) -> require path
-
-  class Compiler
     constructor: (props = {}) ->
-      $.assign this, props
-      @tokenizer ?= new Tokenizer
-      @converter ?= new JasmineConverter
-      @parser ?= new JasmineCoffeeParser
+      @[key] = val for own key, val of props
+      @depth ?= 0
+      @contextNodes ?= []
 
-    compile: (markdown) ->
-      tokens = @tokenizer.tokenize markdown
-      tokens = @converter.convert tokens
-      @parser.parse tokens
+    addContextNode: (props) ->
+      node = new ContextNode(props)
+      node.parent = this
+      @contextNodes.push node
+      node
 
-  class Tokenizer
-    marked: null
-    defaultLanguage: null
+    getContextNodes: ->
+      @contextNodes
+
+  class Node
+    type: null
+
+    constructor: (props = {}) ->
+      Object.defineProperty @, "parent",
+        value: null, enumerable: false, writable: true
+
+      Object.defineProperty @, "ancestors", enumerable: false, get: ->
+        node = this; node = node.parent while node.parent?
+
+      Object.defineProperty @, "depth", enumerable: true, get: ->
+        if @parent? then @parent.depth + 1 else 0
+
+      @[key] = val for own key, val of props
+      @type ?= @constructor.name
+
+  class ContextNode extends Node
+    text: null
+    children: null
 
     constructor: (props) ->
-      $.assign this, props
-      @marked ?= $.require("marked")
+      super props
+      @children ?= []
 
-    isExampleToken: (mdToken) ->
-      mdToken.type is "heading" and /^example/i.test mdToken.text
+    addChild: (node) ->
+      node.parent = this
+      @children.push node
+      node
 
-    isContextToken: (mdToken) ->
-      mdToken.type is "heading" and !@isExampleToken mdToken
+    getChildrenByType: (type) ->
+      @children.filter (child) -> child.type is type
 
-    isCodeToken: (mdToken) ->
-      mdToken.type is "code"
+    addContextNode: (props) ->
+      @addChild new ContextNode(props)
 
-    createExampleToken: (mdToken) ->
-      type: "example"
-      text: mdToken.text
-      depth: mdToken.depth
+    addBeforeEachNode: (props) ->
+      @addChild new BeforeEachNode(props)
 
-    createContextToken: (mdToken) ->
-      type: "context"
-      text: mdToken.text
-      depth: mdToken.depth
+    addFileNode: (props) ->
+      @addChild new FileNode(props)
 
-    createCodeToken: (mdToken) ->
-      type: "code"
-      lang: mdToken.lang
-      text: mdToken.text
+    addAssertionNode: (props) ->
+      @addChild new AssertionNode(props)
 
-    processMarkdownToken: (tokens, mdToken) ->
-      createToken = switch
-        when @isExampleToken mdToken then @createExampleToken
-        when @isContextToken mdToken then @createContextToken
-        when @isCodeToken mdToken then @createCodeToken
+    getContextNodes: ->
+      @getChildrenByType "ContextNode"
 
-      return tokens unless createToken?
+    getFileNodes: ->
+      @getChildrenByType "FileNode"
 
-      token = createToken mdToken
-      previous = tokens[tokens.length - 1]
+    getAssertionNodes: ->
+      @getChildrenByType "AssertionNode"
 
-      if token.type is "code" and previous?.type is "code" and previous?.lang is token.lang
-        previous.text = previous.text + "\n" + token.text
-        return tokens
+    getBeforeEachNodes: ->
+      @getChildrenByType "BeforeEachNode"
 
-      tokens = tokens.concat createToken(mdToken) if createToken?
-      return tokens
+    getAncestorContexts: ->
+      @ancestors.filter ({type}) -> type is "ContextNode"
 
-    tokenizeMarkdown: (markdown) ->
-      @marked.lexer markdown
+    getParentContext: ->
+      @getAncestorContexts[0]
 
-    tokenize: (markdown) ->
-      mdTokens = @tokenizeMarkdown markdown
-      mdTokens.reduce @processMarkdownToken.bind(this), []
+  class BeforeEachNode extends Node
+    code: null
 
-  class JasmineConverter
-    globalVariables: null
+  class FileNode extends Node
+    path: null
+    data: null
+
+  class AssertionNode extends Node
+    text: null
+    code: null
+
+  class InvalidHeadingDepth extends Error
+    headingToken: null
 
     constructor: (props = {}) ->
-      # https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects
-      @globalVariables ?= [
-        "Infinity", "NaN", "undefined", "null",
-        "eval", "isFinite", "isNaN", "parseFloat", "parseInt",
-        "decodeURI", "decodeURIComponent", "encodeURI", "encodeURIComponent",
-        "Object", "Function", "Boolean", "Error", "EvalError", "InternalError",
-        "RangeError", "ReferenceError", "SyntaxError", "TypeError", "URIError",
-        "Number", "Math", "Date", "String", "Symbol", "RegExp",
-        "Array", "Int8Array", "Uint8Array", "Uint8ClampedArray", "Int16Array",
-        "Uint16Array", "Int32Array", "Uint32Array", "Float32Array", "Float64Array",
-        "Map", "Set", "WeakMap", "WeakSet", "SIMD", "ArrayBuffer", "DataView", "JSON",
-        "Promise", "Generator", "GeneratorFunction", "Reflect", "Proxy", "arguments",
-        "require", "console", "module", "process", "window", "jasmine", "spyOn"
-      ]
+      Error.captureStackTrace @, @constructor
+      @headingToken = props.headingToken
+      @name = @constructor.name
+      @message = @getMessage()
 
-    createDescribeToken: ({depth, text}) ->
-      type: "describe"
-      depth: depth
-      text: text
+    getMessage: ->
+      "Invalid depth (#{@headingToken.depth}) for heading '#{@headingToken.text}'."
 
-    createVarsToken: ({depth, vars}) ->
-      type: "vars"
-      depth: depth
-      vars: vars
+  class NotImplemented extends Error
+    constructor: (message = "not implemented") ->
+      Error.captureStackTrace @, @constructor
+      @name = @constructor.name
+      @message = message
 
-    createBeforeEachToken: ({depth, code}) ->
-      type: "beforeEach"
-      depth: depth
-      code: code
+  class Parser
+    nativeLanguages: null
+    assertionCodePattern: null
+    fileCodePattern: null
 
-    createItToken: ({depth, text}) ->
-      type: "it"
-      depth: depth
-      text: text.replace /^example\:?\s*/, ""
-
-    createAssertionToken: ({depth, code}) ->
-      type: "assertion"
-      depth: depth
-      code: code
-
-    getVariableNames: (code) ->
-      tokens = require("coffee-script").tokens(code)
-
-      reduceFn = (vars, token) =>
-        [type, value] = token
-        return vars unless type is "IDENTIFIER" and token.variable
-        return vars unless vars.indexOf(value) is -1
-        return vars unless @globalVariables.indexOf(value) is -1
-        vars.concat value
-
-      tokens.reduce reduceFn, []
-
-    convert: (tokens) ->
-      currentDepth = 0
-      currentContext = null
-
-      reduceTokens = (tokens, token) =>
-        currentDepth = token.depth if token.depth?
-
-        if token.type is "context"
-          currentContext = "describe"
-          tokens.push @createDescribeToken token
-
-        if token.type is "example"
-          currentContext = "it"
-          tokens.push @createItToken token
-
-        if token.type is "code" and currentContext is "describe"
-          vars = @getVariableNames token.text
-          tokens.push @createVarsToken vars: vars, depth: currentDepth + 1
-          tokens.push @createBeforeEachToken code: token.text, depth: currentDepth + 1
-
-        if token.type is "code" and currentContext is "it"
-          tokens.push @createAssertionToken code: token.text, depth: currentDepth + 1
-
-        return tokens
-
-      tokens.reduce reduceTokens, []
-
-  class JasmineCoffeeParser
     constructor: (props = {}) ->
+      @[key] = val for own key, val of props
+      @nativeLanguages ?= []
+      @assertionCodePattern ?= $.assertionCodePattern
+      @fileCodePattern ?= $.fileCodePattern
 
-    parse: (tokens) ->
-      # two dimensional array, first dimension representing depth at which vars defined
-      declared = []
-      snippets = []
+    isNativeCode: (code, lang) ->
+      !lang? or lang in @nativeLanguages
 
-      removeTrailingWhiteSpace = (code) ->
-        code.replace /[ \t]+$/gm, ""
+    isAssertionCode: (code, lang) ->
+      return false if !@isNativeCode(code, lang) or @isFileCode(code, lang)
+      @assertionCodePattern.test code
 
-      indent = (code, depth) ->
-        indentation = ""
-        indentation += "  " for i in [1...depth]
-        code.replace /^/gm, indentation
+    isBeforeEachCode: (code, lang) ->
+      @isNativeCode(code, lang) and !@isFileCode(code, lang) and !@isAssertionCode(code, lang)
 
-      addSnippet = (code, depth) ->
-        code = indent code, depth
-        snippets.push code
+    isFileCode: (code, lang) ->
+      @fileCodePattern.test code
 
-      replaceAssertionComments = (code) ->
+    getFilePath: (code) ->
+      @fileCodePattern.exec(code)[1]
 
-        getAssertionCommentSubject = (line) ->
-          startIndex = /[^\s]/.exec(line).index
-          endIndex = line.indexOf " # =>"
-          line[startIndex...endIndex]
+    getFileData: (code) ->
+      code.slice(code.indexOf("\n") + 1) + "\n"
 
-        getAssertionCommentTarget = (line) ->
-          /\s# => (.*)$/.exec(line)[1]
+    isAssertionNext: (tokens) ->
+      return false unless tokens.length > 1
+      {type, text, lang} = tokens[1]
+      tokens[0].type is "paragraph" and type is "code" and @isAssertionCode(text, lang)
 
-        getAssertionCommentIndentation = (line) ->
-          /^(\s*)/.exec(line)[1]
+    consumeNextAssertion: (contextNode, tokens) ->
+      [para, code] = tokens.splice 0, 2
+      contextNode.addAssertionNode text: para.text, code: code.text
 
-        transformAssertionComment = (line) ->
-          return line if line.indexOf(" # =>") is -1
-          subject = getAssertionCommentSubject line
-          target = getAssertionCommentTarget line
-          indentation = getAssertionCommentIndentation line
-          "#{indentation}expect(#{subject}).toEqual(#{target})"
+    isFileNext: (tokens) ->
+      return false unless tokens.length
+      {type, text, lang} = tokens[0]
+      type is "code" and @isFileCode(text, lang)
 
-        code.split("\n").map(transformAssertionComment).join("\n")
+    consumeNextFile: (contextNode, tokens) ->
+      {text} = tokens.shift()
+      path = @getFilePath text
+      data = @getFileData text
+      contextNode.addFileNode path: path, data: data
 
-      addDone = (code) ->
-        pattern = /^(\s*)([^\s]+)/gm
-        lastSpacing = match[1] while match = pattern.exec code
-        lastSpacing ?= ""
-        code += "\n#{lastSpacing}done()"
+    isBeforeEachNext: (tokens) ->
+      return false unless tokens.length
+      {type, text, lang} = tokens[0]
+      type is "code" and @isBeforeEachCode(text, lang)
 
-      isDeclared = (v, depth) ->
-        [(depth-1)..0].some (d) ->
-          v in (declared[d] ? [])
+    consumeNextBeforeEach: (contextNode, tokens) ->
+      {text} = tokens.shift()
+      contextNode.addBeforeEachNode code: text
 
-      declareVar = (v, depth) ->
-        d = declared[depth] ?= []
-        d.push v if d.indexOf(v) is -1
+    getParentNodeForHeading: (headingToken, parseTree, previousContextNode) ->
+      previousNode = (previousContextNode or parseTree)
+      depthDiff = previousNode.depth - headingToken.depth
+      return previousNode if depthDiff is -1
+      return previousNode.ancestors[depthDiff] if depthDiff >= 0
+      throw new InvalidHeadingDepth headingToken: headingToken
 
-      tokens.forEach (token) ->
+    parseContextChildTokens: (contextNode, tokens) ->
+      return contextNode unless tokens.length
 
-        if token.type is "describe"
-          quotedText = JSON.stringify token.text
-          code = "describe #{quotedText}, ->"
-          code = "\n" + code unless token.depth is 1
-          addSnippet code, token.depth
+      switch
+        when @isAssertionNext(tokens) then @consumeNextAssertion(contextNode, tokens)
+        when @isFileNext(tokens) then @consumeNextFile(contextNode, tokens)
+        when @isBeforeEachNext(tokens) then @consumeNextBeforeEach(contextNode, tokens)
+        else tokens.shift()
 
-        if token.type is "vars"
-          vars = []
+      @parseContextChildTokens contextNode, tokens
 
-          token.vars.forEach (v) ->
-            vars.push v unless isDeclared v, token.depth
-            declareVar v, token.depth
+    parse: (tokens, parseTree = (new ParseTree), previousContextNode) ->
+      headingToken = tokens.find ({type}) -> type is "heading"
+      return parseTree unless headingToken?
 
-          return if vars.length is 0
-          code = "\n[#{vars.join(", ")}] = []"
-          addSnippet code, token.depth
+      parentNode = @getParentNodeForHeading headingToken, parseTree, previousContextNode
+      contextNode = parentNode.addContextNode text: headingToken.text
 
-        if token.type is "beforeEach"
-          code = "\nbeforeEach ->\n"
-          code = code + indent(token.code, 2)
-          addSnippet code, token.depth
+      tokens = tokens.slice (tokens.indexOf(headingToken) + 1)
+      childTokens = do -> tokens.shift() while tokens.length and tokens[0].type isnt "heading"
 
-        if token.type is "it"
-          quotedText = JSON.stringify token.text
-          code = "\nit #{quotedText}, (done) ->"
-          addSnippet code, token.depth
+      @parseContextChildTokens contextNode, childTokens
+      @parse tokens, parseTree, contextNode
 
-        if token.type is "assertion"
-          code = replaceAssertionComments token.code
-          code = addDone code
-          addSnippet code, token.depth
+  class Generator
+    generate: (parseTree) ->
+      throw new NotImplemented()
 
-      result = snippets.join("\n") + "\n"
-      removeTrailingWhiteSpace result
+  class Compiler
+    lexer: null
+    parser: null
+    generator: null
 
-  class FileCompiler
+    constructor: (props = {}) ->
+      @[key] = val for own key, val of props
+      @lexer ?= $.lexer
+      @parser ?= new Parser
+      @generator ?= new Generator
+
+    compile: (markdown) ->
+      tokens = @lexer.lex markdown
+      parseTree = @parser.parse tokens
+      @generator.generate parseTree
+
+  class Converter
     compiler: null
+    cwd: null
+    readDir: null
+    writeDir: null
+    writeExt: null
 
     constructor: (props = {}) ->
       @[key] = val for own key, val of props
       @compiler ?= new Compiler
+      @cwd ?= $.cwd
+      @readDir ?= $.readDir
+      @writeDir ?= $.writeDir
+      @writeExt ?= $.writeExt
 
-    compile: (sourcePath, targetPath, done) ->
-
-      @readFile sourcePath, (error, data) =>
-        return done error if error?
-        compiled = @compiler.compile data.toString()
-
-        @writeFile targetPath, compiled, (error) ->
-          return done error if error?
-          return done null, compiled
+    constructOptions: (options = {}) ->
+      cwd: $.Path.resolve(options.cwd ? @cwd)
+      readDir: options.readDir ? @readDir
+      writeDir: options.writeDir ? @writeDir
+      writeExt: options.writeExt ? @writeExt
 
     readFile: (path, done) ->
-      require("fs").readFile path, done
+      $.FileSystem.readFile path, done
 
     writeFile: (path, data, done) ->
-      require("fs").writeFile path, data, done
+      $.FileSystem.writeFile path, data, done
 
-  class MultiFileCompiler
-    constructor: (params = {}) ->
-      @[key] = val for own key, val of params
-      @cwd ?= process.cwd()
-      @fileCompiler ?= new FileCompiler
-      @sourceDir ?= @resolvePath @cwd, "docs"
-      @targetDir ?= @resolvePath @cwd, "spec"
+    getWritePath: (readPath, {cwd, writeDir, writeExt}) ->
+      dirname = $.Path.dirname readPath
+      basename = $.Path.basename readPath
+      filename = basename.split(".")[0] + writeExt
+      $.Path.resolve cwd, writeDir, filename
 
-    resolvePath: (args...) ->
-      require("path").resolve args...
+    convertPath: (readPath, options, done) ->
+      @readFile readPath, (error, data) =>
+        return done error if error?
+        compiled = @compiler.compile data.toString()
+        writePath = @getWritePath readPath, options
+        @writeFile writePath, compiled, done
 
-    joinPath: (args...) ->
-      require("path").join args...
+    convertPaths: (paths, options, done) ->
+      $.Async.eachSeries paths, (path, done) =>
+        @convertPath path, options, done
 
-    eachSeries: (series, fn, done) ->
-      require("async").eachSeries series, fn, done
+    convertSource: (source, options, done) ->
+      $.Glob source, cwd: options.cwd, (error, paths) =>
+        return done error if error?
+        @convertPaths paths, options, done
 
-    getTargetName: (sourceName) ->
-      sourceName.replace /((\.coffee)?\.md|\.litcoffee)$/, "-spec.coffee"
+    convertSources: (sources, options, done) ->
+      $.Async.eachSeries sources, (source, done) =>
+        @convertSource source, options, done
 
-    compileSourceName: (sourceName, done) ->
-      targetName = @getTargetName sourceName
-      sourcePath = @joinPath @sourceDir, sourceName
-      targetPath = @joinPath @targetDir, targetName
-      @fileCompiler.compile sourcePath, targetPath, done
-
-    glob: (args...) ->
-      require("glob") args...
-
-    compile: (patterns..., done) ->
-      patterns = ["**/*.?(md|litcoffee)"] if patterns.length is 0
-
-      compilePattern = (pattern, done) =>
-        @glob pattern, cwd: @sourceDir, (error, sourceNames) =>
-          return done error if error
-          @eachSeries sourceNames, @compileSourceName.bind(this), done
-
-      @eachSeries patterns, compilePattern, done
+    convert: (sources, options, done) ->
+      options = @constructOptions options
+      @convertSources sources, options, done
 
   class CLI
-    multiFileCompiler: null
+    converter: null
+    stdin: null
+    stdout: null
 
     constructor: (props = {}) ->
-      $.assign this, props
-      @multiFileCompiler ?= new MultiFileCompiler
+      @[key] = val for own key, val of props
+      @converter ?= new Converter
+      @stdin ?= $.stdin
+      @stdout ?= $.stdout
 
-    getUsageBanner: ->
+    getCommandName: ->
+      $.Path.basename $.argv[1]
+
+    getVersion: ->
+      $.package.version
+
+    getHelp: ->
+      cmd = @getCommandName()
+      version = @getVersion()
+      {cwd, readDir, writeDir, writeExt} = @converter
+
       """
-      #{$0} [file|pattern]...
-      Compile the specified files/patterns.
+      MarkdownDriven v#{version}
+      Convert markdown documents to runnable specs.
+
+      Usage: #{cmd} [options] <sources...>
+
+      options:
+        --cwd=dir         The current working directory
+        --readDir=dir     The base directory containing <paths...>
+        --writeDir=dir    The destination directory for writing files
+        --writeExt=ext    The extension to use when writing files
+        --help            Show this help screen
+
+      defaults:
+        cwd: "#{cwd}"
+        readDir: "#{readDir}"
+        writeDir: "#{writeDir}"
+        writeExt: "#{writeExt}"
+
+      example:
+        #{cmd} --readDir=docs --writeDir=specs --writeExt=".spec.js" "docs/**/*.md"
+
       """
 
-    run: (done) ->
+    showHelp: (code = 0) ->
+      @stdout.write @getHelp()
+      $.process.exit code
 
-      yargs = require("yargs")
-      argv = yargs.argv
-      patterns = argv._
+    getParameters: (args) ->
+      argv = $.Minimist args, boolean: ["help"]
+      params =
+        help: argv.help
+        paths: argv._
+        options:
+          cwd: argv.cwd
+          readDir: argv.readDir
+          writeDir: argv.writeDir
+          writeExt: argv.writeExt
 
-      @multiFileCompiler.compile patterns..., (error) ->
+    run: (args = $.argv.slice(2)) ->
+      {help, paths, options} = @getParameters args
+      return @showHelp(0) if !!(help)
+      return @showHelp(1) unless !!(paths?.length)
+
+      @converter.convert paths, options, (error) =>
         throw error if error?
-        process.exit 0
+        $.process.exit(0)
 
-  CLI: CLI
-  Compiler: Compiler
-  FileCompiler: FileCompiler
-  MultiFileCompiler: MultiFileCompiler
-  JasmineCoffeeParser: JasmineCoffeeParser
-  JasmineConverter: JasmineConverter
-  Tokenizer: Tokenizer
+  MarkdownDriven =
+    configuration: $
+    configure: configure
+    InvalidHeadingDepth: InvalidHeadingDepth
+    NotImplemented: NotImplemented
+    ParseTree: ParseTree
+    Node: Node
+    ContextNode: ContextNode
+    BeforeEachNode: BeforeEachNode
+    FileNode: FileNode
+    AssertionNode: AssertionNode
+    Parser: Parser
+    Generator: Generator
+    Compiler: Compiler
+    Converter: Converter
+    CLI: CLI
 
 module.exports = configure()
