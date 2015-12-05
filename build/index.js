@@ -113,17 +113,50 @@ configure = function($) {
       }
     }
 
-    ParseTree.prototype.pruneInvalidContexts = function() {
-      var prune;
-      prune = function(node) {
-        return node.getContextNodes().forEach(function(contextNode) {
-          if (!contextNode.hasAssertions()) {
-            node.removeChild(contextNode);
-          }
-          return prune(contextNode);
-        });
+    ParseTree.prototype.addEmptyAssertionNodes = function(node) {
+      var child, children, i, isApplicable, j, len, len1, results;
+      if (node == null) {
+        node = this;
+      }
+      children = node.getContextNodes();
+      isApplicable = function(child) {
+        return child.getAssertionNodes().length === 0 && child.getBeforeEachNodes().length > 0;
       };
-      return prune(this);
+      for (i = 0, len = children.length; i < len; i++) {
+        child = children[i];
+        if (isApplicable(child)) {
+          child.addAssertionNode({
+            text: "is ok",
+            code: ''
+          });
+        }
+      }
+      results = [];
+      for (j = 0, len1 = children.length; j < len1; j++) {
+        child = children[j];
+        results.push(this.addEmptyAssertionNodes(child));
+      }
+      return results;
+    };
+
+    ParseTree.prototype.pruneInvalidContexts = function(node) {
+      var child, children, i, j, len, len1, results;
+      if (node == null) {
+        node = this;
+      }
+      children = node.getContextNodes();
+      for (i = 0, len = children.length; i < len; i++) {
+        child = children[i];
+        if (!child.hasAssertions()) {
+          node.removeChild(child);
+        }
+      }
+      results = [];
+      for (j = 0, len1 = children.length; j < len1; j++) {
+        child = children[j];
+        results.push(this.pruneInvalidContexts(child));
+      }
+      return results;
     };
 
     ParseTree.prototype.addContextNode = function(props) {
@@ -523,6 +556,7 @@ configure = function($) {
     Parser.prototype.parse = function(tokens) {
       var parseTree;
       parseTree = this.parseTokens(tokens);
+      parseTree.addEmptyAssertionNodes();
       parseTree.pruneInvalidContexts();
       return parseTree;
     };

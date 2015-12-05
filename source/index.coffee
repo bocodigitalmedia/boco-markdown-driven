@@ -49,13 +49,16 @@ configure = ($ = {}) ->
       @[key] = val for own key, val of props
       @children ?= []
 
-    pruneInvalidContexts: ->
-      prune = (node) ->
-        node.getContextNodes().forEach (contextNode) ->
-          unless contextNode.hasAssertions()
-            node.removeChild contextNode
-          prune contextNode
-      prune this
+    addEmptyAssertionNodes: (node = this) ->
+      children = node.getContextNodes()
+      isApplicable = (child) -> child.getAssertionNodes().length is 0 and child.getBeforeEachNodes().length > 0
+      child.addAssertionNode(text: "is ok", code: '') for child in children when isApplicable(child)
+      @addEmptyAssertionNodes child for child in children
+
+    pruneInvalidContexts: (node = this) ->
+      children = node.getContextNodes()
+      node.removeChild(child) for child in children when !child.hasAssertions()
+      @pruneInvalidContexts child for child in children
 
     addContextNode: (props) ->
       child = new ContextNode props
@@ -252,6 +255,7 @@ configure = ($ = {}) ->
 
     parse: (tokens) ->
       parseTree = @parseTokens tokens
+      parseTree.addEmptyAssertionNodes()
       parseTree.pruneInvalidContexts()
       parseTree
 

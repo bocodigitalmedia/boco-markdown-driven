@@ -119,6 +119,10 @@ describe "Mather", ->
         ok()
 ```
 
+## An empty context with before each
+
+    console.log("do something here")
+
 [boco-markdown-driven]: https://github.com/bocodigitalmedia/boco-markdown-driven
 [npm]: https://npmjs.org
 
