@@ -302,7 +302,6 @@ configure = ($ = {}) ->
 
     constructor: (props = {}) ->
       @[key] = val for own key, val of props
-      @converter ?= new Converter
       @stdin ?= $.stdin
       @stdout ?= $.stdout
 
@@ -315,7 +314,6 @@ configure = ($ = {}) ->
     getHelp: ->
       cmd = @getCommandName()
       version = @getVersion()
-      {cwd, readDir, writeDir, writeExt} = @converter
 
       """
       MarkdownDriven v#{version}
@@ -323,21 +321,16 @@ configure = ($ = {}) ->
 
       Usage: #{cmd} [options] <sources...>
 
-      options:
-        --cwd=dir         The current working directory
-        --readDir=dir     The base directory containing <paths...>
-        --writeDir=dir    The destination directory for writing files
-        --writeExt=ext    The extension to use when writing files
-        --help            Show this help screen
+      sources:
+        specify source markdown via a list of quoted glob patterns
 
-      defaults:
-        cwd: "#{cwd}"
-        readDir: "#{readDir}"
-        writeDir: "#{writeDir}"
-        writeExt: "#{writeExt}"
+      options:
+        -c, --configFile=file   The path to the configuration file
+                                default: "markdown-driven.json"
+        -h, --help              Show this help screen
 
       example:
-        #{cmd} --readDir=docs --writeDir=specs --writeExt=".spec.js" "docs/**/*.md"
+        #{cmd} -c markdown-driven.json "docs/**/*.md"
 
       """
 
@@ -346,22 +339,38 @@ configure = ($ = {}) ->
       $.process.exit code
 
     getParameters: (args) ->
-      argv = $.Minimist args, boolean: ["help"]
+      argv = $.Minimist args,
+        boolean: ["help"]
+        string: ["configFile"]
+        alias:
+          c: "configFile"
+          h: "help"
+
       params =
         help: argv.help
-        paths: argv._
-        options:
-          cwd: argv.cwd
-          readDir: argv.readDir
-          writeDir: argv.writeDir
-          writeExt: argv.writeExt
+        sources: argv._
+        configFile: argv.configFile
 
     run: (args = $.argv.slice(2)) ->
-      {help, paths, options} = @getParameters args
+      {help, sources, configFile} = @getParameters args
       return @showHelp(0) if !!(help)
-      return @showHelp(1) unless !!(paths?.length)
+      return @showHelp(1) if !(sources?.length)
 
-      @converter.convert paths, options, (error) =>
+      configPath = $.Path.resolve $.cwd, configFile
+      config = require configPath
+
+      {generator, lexerOptions, parserOptions, generatorOptions, converterOptions} = config
+
+      lexer = new $.Marked.Lexer lexerOptions
+      parser = new Parser parserOptions
+      generator = new (require(generator)).Generator generatorOptions
+      compiler = new Compiler lexer: lexer, parser: parser, generator: generator
+
+      converterOptions ?= {}
+      converterOptions.compiler = compiler
+      converter = new Converter converterOptions
+
+      converter.convert sources, null, (error) =>
         throw error if error?
         $.process.exit(0)
 
