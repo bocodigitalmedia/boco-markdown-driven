@@ -1,6 +1,6 @@
 {
   "name": "boco-markdown-driven",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Markdown Driven Development",
   "main": "build/index.js",
   "scripts": {
@@ -18,7 +18,8 @@
     "minimist": "^1.2.0"
   },
   "devDependencies": {
-    "coffee-script": "^1.10.0"
+    "coffee-script": "^1.10.0",
+    "node-inspector": "^0.12.4"
   },
   "directories": {
     "doc": "docs"

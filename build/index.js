@@ -5,7 +5,7 @@ var configure,
   indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
 
 configure = function($) {
-  var AssertionNode, BeforeEachNode, CLI, Compiler, ContextNode, Converter, FileNode, Generator, InvalidHeadingDepth, MarkdownDriven, Node, NotImplemented, ParseTree, Parser;
+  var AssertionNode, BeforeEachNode, CLI, Compiler, ContextNode, Converter, FileNode, Generator, InvalidHeadingDepth, MarkdownDriven, Node, NodeMixins, NotImplemented, ParseTree, Parser;
   if ($ == null) {
     $ = {};
   }
@@ -66,8 +66,33 @@ configure = function($) {
   if ($.writeDir == null) {
     $.writeDir = "spec";
   }
+  NodeMixins = {
+    removeChild: function(child) {
+      var index;
+      if ((index = this.children.indexOf(child)) === -1) {
+        return;
+      }
+      return this.children.splice(index, 1);
+    },
+    addChild: function(child) {
+      child.parent = this;
+      this.children.push(child);
+      return child;
+    },
+    addContextNode: function(props) {
+      return this.addChild(new ContextNode(props));
+    },
+    getChildrenByType: function(type) {
+      return this.children.filter(function(child) {
+        return child.type === type;
+      });
+    },
+    getContextNodes: function() {
+      return this.getChildrenByType("ContextNode");
+    }
+  };
   ParseTree = (function() {
-    ParseTree.prototype.contextNodes = null;
+    ParseTree.prototype.children = null;
 
     ParseTree.prototype.depth = null;
 
@@ -84,33 +109,33 @@ configure = function($) {
       if (this.depth == null) {
         this.depth = 0;
       }
-      if (this.contextNodes == null) {
-        this.contextNodes = [];
+      if (this.children == null) {
+        this.children = [];
       }
     }
 
     ParseTree.prototype.pruneInvalidContexts = function() {
-      var hasAssertions;
-      hasAssertions = function(node) {
-        return node.hasAssertions();
+      var prune;
+      prune = function(node) {
+        return node.getContextNodes().forEach(function(contextNode) {
+          if (!contextNode.hasAssertions()) {
+            node.removeChild(contextNode);
+          }
+          return prune(contextNode);
+        });
       };
-      return new ParseTree({
-        depth: this.depth,
-        contextNodes: this.contextNodes.filter(hasAssertions)
-      });
+      return prune(this);
     };
 
-    ParseTree.prototype.addContextNode = function(props) {
-      var node;
-      node = new ContextNode(props);
-      node.parent = this;
-      this.contextNodes.push(node);
-      return node;
-    };
+    ParseTree.prototype.addChild = NodeMixins.addChild;
 
-    ParseTree.prototype.getContextNodes = function() {
-      return this.contextNodes;
-    };
+    ParseTree.prototype.addContextNode = NodeMixins.addContextNode;
+
+    ParseTree.prototype.getChildrenByType = NodeMixins.getChildrenByType;
+
+    ParseTree.prototype.getContextNodes = NodeMixins.getContextNodes;
+
+    ParseTree.prototype.removeChild = NodeMixins.removeChild;
 
     return ParseTree;
 
@@ -177,14 +202,8 @@ configure = function($) {
       }
     }
 
-    ContextNode.prototype.addChild = function(node) {
-      node.parent = this;
-      this.children.push(node);
-      return node;
-    };
-
     ContextNode.prototype.hasAssertions = function() {
-      if (this.getAssertionNodes().length) {
+      if (this.getAssertionNodes().length > 0) {
         return true;
       }
       return this.getContextNodes().some(function(node) {
@@ -192,15 +211,15 @@ configure = function($) {
       });
     };
 
-    ContextNode.prototype.getChildrenByType = function(type) {
-      return this.children.filter(function(child) {
-        return child.type === type;
-      });
-    };
+    ContextNode.prototype.addChild = NodeMixins.addChild;
 
-    ContextNode.prototype.addContextNode = function(props) {
-      return this.addChild(new ContextNode(props));
-    };
+    ContextNode.prototype.addContextNode = NodeMixins.addContextNode;
+
+    ContextNode.prototype.getChildrenByType = NodeMixins.getChildrenByType;
+
+    ContextNode.prototype.getContextNodes = NodeMixins.getContextNodes;
+
+    ContextNode.prototype.removeChild = NodeMixins.removeChild;
 
     ContextNode.prototype.addBeforeEachNode = function(props) {
       return this.addChild(new BeforeEachNode(props));
@@ -500,7 +519,8 @@ configure = function($) {
     Parser.prototype.parse = function(tokens) {
       var parseTree;
       parseTree = this.parseTokens(tokens);
-      return parseTree = parseTree.pruneInvalidContexts();
+      parseTree.pruneInvalidContexts();
+      return parseTree;
     };
 
     return Parser;

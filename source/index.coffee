@@ -19,29 +19,48 @@ configure = ($ = {}) ->
   $.readDir ?= "docs"
   $.writeDir ?= "spec"
 
+
+  NodeMixins =
+    removeChild: (child) ->
+      return if (index = @children.indexOf(child)) is -1
+      @children.splice index, 1
+
+    addChild: (child) ->
+      child.parent = @
+      @children.push child
+      child
+
+    addContextNode: (props) ->
+      @addChild new ContextNode(props)
+
+    getChildrenByType: (type) ->
+      @children.filter (child) -> child.type is type
+
+    getContextNodes: ->
+      @getChildrenByType "ContextNode"
+
   class ParseTree
-    contextNodes: null
+    children: null
     depth: null
 
     constructor: (props = {}) ->
       @[key] = val for own key, val of props
       @depth ?= 0
-      @contextNodes ?= []
+      @children ?= []
 
     pruneInvalidContexts: ->
-      hasAssertions = (node) -> node.hasAssertions()
-      new ParseTree
-        depth: @depth
-        contextNodes: @contextNodes.filter(hasAssertions)
+      prune = (node) ->
+        node.getContextNodes().forEach (contextNode) ->
+          unless contextNode.hasAssertions()
+            node.removeChild contextNode
+          prune contextNode
+      prune this
 
-    addContextNode: (props) ->
-      node = new ContextNode(props)
-      node.parent = this
-      @contextNodes.push node
-      node
-
-    getContextNodes: ->
-      @contextNodes
+    addChild: NodeMixins.addChild
+    addContextNode: NodeMixins.addContextNode
+    getChildrenByType: NodeMixins.getChildrenByType
+    getContextNodes: NodeMixins.getContextNodes
+    removeChild: NodeMixins.removeChild
 
   class Node
     type: null
@@ -67,20 +86,15 @@ configure = ($ = {}) ->
       super props
       @children ?= []
 
-    addChild: (node) ->
-      node.parent = this
-      @children.push node
-      node
-
     hasAssertions: ->
-      return true if @getAssertionNodes().length
+      return true if @getAssertionNodes().length > 0
       @getContextNodes().some (node) -> node.hasAssertions()
 
-    getChildrenByType: (type) ->
-      @children.filter (child) -> child.type is type
-
-    addContextNode: (props) ->
-      @addChild new ContextNode(props)
+    addChild: NodeMixins.addChild
+    addContextNode: NodeMixins.addContextNode
+    getChildrenByType: NodeMixins.getChildrenByType
+    getContextNodes: NodeMixins.getContextNodes
+    removeChild: NodeMixins.removeChild
 
     addBeforeEachNode: (props) ->
       @addChild new BeforeEachNode(props)
@@ -230,7 +244,8 @@ configure = ($ = {}) ->
 
     parse: (tokens) ->
       parseTree = @parseTokens tokens
-      parseTree = parseTree.pruneInvalidContexts()
+      parseTree.pruneInvalidContexts()
+      parseTree
 
   class Generator
     generate: (parseTree) ->
