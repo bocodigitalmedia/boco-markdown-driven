@@ -11,13 +11,13 @@ npm_dir="$DIR/.."
 clean() {
   find $build_dir -name *.js -print0 | xargs -0 rm -f
   find $build_dir -name *.map -print0 | xargs -0 rm -f
-  find $spec_dir -name *.spec.coffee -print0 | xargs -0 rm -f
+#  find $spec_dir -name *.spec.coffee -print0 | xargs -0 rm -f
 }
 
 build() {
   build-source
   build-readme
-  build-specs
+#  build-specs
 }
 
 build-source() {
