@@ -149,4 +149,3 @@ $ ./node_modules/.bin/markdown-driven --help
 
 [npm]: https://npmjs.org
 [boco-mdd-jasmine-coffee]: https://github.com/bocodigitalmedia/boco-mdd-jasmine-coffee
-[gitter-chat]:
