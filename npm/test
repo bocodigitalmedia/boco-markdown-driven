@@ -3,5 +3,5 @@ DIR="$(cd "$(dirname "$0")/.." && pwd)"
 coffee="$DIR/node_modules/.bin/coffee"
 runner="$DIR/support/jasmine-runner.coffee"
 
-# NODE_PATH=$NODE_PATH:$DIR $coffee $runner "$@"
-NODE_PATH=$NODE_PATH:$DIR $coffee -l README.md
+NODE_PATH=$NODE_PATH:$DIR $coffee $runner "$@"
+# NODE_PATH=$NODE_PATH:$DIR $coffee -l README.md
