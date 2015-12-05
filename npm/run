@@ -4,19 +4,20 @@ coffee="$DIR/../node_modules/.bin/coffee"
 source_dir="$DIR/../source"
 docs_dir="$DIR/../docs"
 build_dir="$DIR/../build"
+spec_dir="$DIR/../spec"
+bin_dir="$DIR/../bin"
 npm_dir="$DIR/.."
 
 clean() {
-  clean-build-dir
-}
-
-clean-build-dir() {
-  rm -rf $build_dir/**/*.js $build_dir/**/*.map
+  find $build_dir -name *.js -print0 | xargs -0 rm -f
+  find $build_dir -name *.map -print0 | xargs -0 rm -f
+  find $spec_dir -name *.spec.coffee -print0 | xargs -0 rm -f
 }
 
 build() {
   build-source
   build-readme
+  build-specs
 }
 
 build-source() {
@@ -30,7 +31,7 @@ build-readme() {
 }
 
 build-specs() {
-  $coffee "$DIR/../support/build-specs.coffee"
+  $bin_dir/markdown-driven -c $npm_dir/markdown-driven.json "docs/**/*.coffee.md"
 }
 
 argv=("$*")
