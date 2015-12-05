@@ -28,6 +28,12 @@ configure = ($ = {}) ->
       @depth ?= 0
       @contextNodes ?= []
 
+    pruneInvalidContexts: ->
+      hasAssertions = (node) -> node.hasAssertions()
+      new ParseTree
+        depth: @depth
+        contextNodes: @contextNodes.filter(hasAssertions)
+
     addContextNode: (props) ->
       node = new ContextNode(props)
       node.parent = this
@@ -65,6 +71,10 @@ configure = ($ = {}) ->
       node.parent = this
       @children.push node
       node
+
+    hasAssertions: ->
+      return true if @getAssertionNodes().length
+      @getContextNodes().some (node) -> node.hasAssertions()
 
     getChildrenByType: (type) ->
       @children.filter (child) -> child.type is type
@@ -205,7 +215,7 @@ configure = ($ = {}) ->
 
       @parseContextChildTokens contextNode, tokens
 
-    parse: (tokens, parseTree = (new ParseTree), previousContextNode) ->
+    parseTokens: (tokens, parseTree = (new ParseTree), previousContextNode) ->
       headingToken = tokens.find ({type}) -> type is "heading"
       return parseTree unless headingToken?
 
@@ -216,7 +226,11 @@ configure = ($ = {}) ->
       childTokens = do -> tokens.shift() while tokens.length and tokens[0].type isnt "heading"
 
       @parseContextChildTokens contextNode, childTokens
-      @parse tokens, parseTree, contextNode
+      @parseTokens tokens, parseTree, contextNode
+
+    parse: (tokens) ->
+      parseTree = @parseTokens tokens
+      parseTree = parseTree.pruneInvalidContexts()
 
   class Generator
     generate: (parseTree) ->
