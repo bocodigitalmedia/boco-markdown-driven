@@ -17,15 +17,11 @@ You can add more than two numbers
     result = mather.add 3, 4, 5
     expect(result).toEqual 12
 
-### Foo
+## Foo
 
     foo = "bar"
     bar = "baz"
     mather = new Mather()
-
-This is a thing
-
-    expect(mather.add foo, bar).toEqual 2
 
 ## Subtracting
 

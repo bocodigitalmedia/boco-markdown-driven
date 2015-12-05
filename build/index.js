@@ -113,28 +113,27 @@ configure = function($) {
       }
     }
 
-    ParseTree.prototype.addEmptyAssertionNodes = function(node) {
+    ParseTree.prototype.addPlaceholderAssertionNodes = function(node) {
       var child, children, i, isApplicable, j, len, len1, results;
       if (node == null) {
         node = this;
       }
       children = node.getContextNodes();
       isApplicable = function(child) {
-        return child.getAssertionNodes().length === 0 && child.getBeforeEachNodes().length > 0;
+        return !child.hasAssertions() && child.getBeforeEachNodes().length > 0;
       };
       for (i = 0, len = children.length; i < len; i++) {
         child = children[i];
         if (isApplicable(child)) {
           child.addAssertionNode({
-            text: "is ok",
-            code: ''
+            placeholder: true
           });
         }
       }
       results = [];
       for (j = 0, len1 = children.length; j < len1; j++) {
         child = children[j];
-        results.push(this.addEmptyAssertionNodes(child));
+        results.push(this.addPlaceholderAssertionNodes(child));
       }
       return results;
     };
@@ -323,13 +322,18 @@ configure = function($) {
   AssertionNode = (function(superClass) {
     extend(AssertionNode, superClass);
 
-    function AssertionNode() {
-      return AssertionNode.__super__.constructor.apply(this, arguments);
-    }
-
     AssertionNode.prototype.text = null;
 
     AssertionNode.prototype.code = null;
+
+    AssertionNode.prototype.placeholder = null;
+
+    function AssertionNode(props) {
+      AssertionNode.__super__.constructor.call(this, props);
+      if (this.placeholder == null) {
+        this.placeholder = false;
+      }
+    }
 
     return AssertionNode;
 
@@ -556,7 +560,7 @@ configure = function($) {
     Parser.prototype.parse = function(tokens) {
       var parseTree;
       parseTree = this.parseTokens(tokens);
-      parseTree.addEmptyAssertionNodes();
+      parseTree.addPlaceholderAssertionNodes();
       parseTree.pruneInvalidContexts();
       return parseTree;
     };
