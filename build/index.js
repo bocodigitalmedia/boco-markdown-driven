@@ -664,9 +664,6 @@ configure = function($) {
         val = props[key];
         this[key] = val;
       }
-      if (this.converter == null) {
-        this.converter = new Converter;
-      }
       if (this.stdin == null) {
         this.stdin = $.stdin;
       }
@@ -684,11 +681,10 @@ configure = function($) {
     };
 
     CLI.prototype.getHelp = function() {
-      var cmd, cwd, readDir, ref, version, writeDir, writeExt;
+      var cmd, version;
       cmd = this.getCommandName();
       version = this.getVersion();
-      ref = this.converter, cwd = ref.cwd, readDir = ref.readDir, writeDir = ref.writeDir, writeExt = ref.writeExt;
-      return "MarkdownDriven v" + version + "\nConvert markdown documents to runnable specs.\n\nUsage: " + cmd + " [options] <sources...>\n\noptions:\n  --cwd=dir         The current working directory\n  --readDir=dir     The base directory containing <paths...>\n  --writeDir=dir    The destination directory for writing files\n  --writeExt=ext    The extension to use when writing files\n  --help            Show this help screen\n\ndefaults:\n  cwd: \"" + cwd + "\"\n  readDir: \"" + readDir + "\"\n  writeDir: \"" + writeDir + "\"\n  writeExt: \"" + writeExt + "\"\n\nexample:\n  " + cmd + " --readDir=docs --writeDir=specs --writeExt=\".spec.js\" \"docs/**/*.md\"\n";
+      return "MarkdownDriven v" + version + "\nConvert markdown documents to runnable specs.\n\nUsage: " + cmd + " [options] <sources...>\n\nsources:\n  specify source markdown via a list of quoted glob patterns\n\noptions:\n  -c, --configFile=file   The path to the configuration file\n                          default: \"markdown-driven.json\"\n  -h, --help              Show this help screen\n\nexample:\n  " + cmd + " -c markdown-driven.json \"docs/**/*.md\"\n";
     };
 
     CLI.prototype.showHelp = function(code) {
@@ -702,33 +698,49 @@ configure = function($) {
     CLI.prototype.getParameters = function(args) {
       var argv, params;
       argv = $.Minimist(args, {
-        boolean: ["help"]
+        boolean: ["help"],
+        string: ["configFile"],
+        alias: {
+          c: "configFile",
+          h: "help"
+        }
       });
       return params = {
         help: argv.help,
-        paths: argv._,
-        options: {
-          cwd: argv.cwd,
-          readDir: argv.readDir,
-          writeDir: argv.writeDir,
-          writeExt: argv.writeExt
-        }
+        sources: argv._,
+        configFile: argv.configFile
       };
     };
 
     CLI.prototype.run = function(args) {
-      var help, options, paths, ref;
+      var compiler, config, configFile, configPath, converter, converterOptions, generator, generatorOptions, help, lexer, lexerOptions, parser, parserOptions, ref, sources;
       if (args == null) {
         args = $.argv.slice(2);
       }
-      ref = this.getParameters(args), help = ref.help, paths = ref.paths, options = ref.options;
+      ref = this.getParameters(args), help = ref.help, sources = ref.sources, configFile = ref.configFile;
       if (!!help) {
         return this.showHelp(0);
       }
-      if (!(paths != null ? paths.length : void 0)) {
+      if (!(sources != null ? sources.length : void 0)) {
         return this.showHelp(1);
       }
-      return this.converter.convert(paths, options, (function(_this) {
+      configPath = $.Path.resolve($.cwd, configFile);
+      config = require(configPath);
+      generator = config.generator, lexerOptions = config.lexerOptions, parserOptions = config.parserOptions, generatorOptions = config.generatorOptions, converterOptions = config.converterOptions;
+      lexer = new $.Marked.Lexer(lexerOptions);
+      parser = new Parser(parserOptions);
+      generator = new (require(generator)).Generator(generatorOptions);
+      compiler = new Compiler({
+        lexer: lexer,
+        parser: parser,
+        generator: generator
+      });
+      if (converterOptions == null) {
+        converterOptions = {};
+      }
+      converterOptions.compiler = compiler;
+      converter = new Converter(converterOptions);
+      return converter.convert(sources, null, (function(_this) {
         return function(error) {
           if (error != null) {
             throw error;

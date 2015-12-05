@@ -1,0 +1,4 @@
+#!/usr/bin/env node
+var MarkdownDriven = require("../");
+var cli = new MarkdownDriven.CLI()
+cli.run();
