@@ -27,6 +27,7 @@ configure = ($ = {}) ->
 
     addChild: (child) ->
       child.parent = @
+      child.depth = @depth + 1
       @children.push child
       child
 
@@ -40,12 +41,12 @@ configure = ($ = {}) ->
       @getChildrenByType "ContextNode"
 
   class ParseTree
+    type: null
     children: null
-    depth: null
 
     constructor: (props = {}) ->
+      @type = @constructor.name
       @[key] = val for own key, val of props
-      @depth ?= 0
       @children ?= []
 
     pruneInvalidContexts: ->
@@ -56,27 +57,32 @@ configure = ($ = {}) ->
           prune contextNode
       prune this
 
-    addChild: NodeMixins.addChild
-    addContextNode: NodeMixins.addContextNode
+    addContextNode: (props) ->
+      child = new ContextNode props
+      child.parent = this
+      child.depth = 0
+      @children.push child
+      child
+
     getChildrenByType: NodeMixins.getChildrenByType
     getContextNodes: NodeMixins.getContextNodes
     removeChild: NodeMixins.removeChild
 
   class Node
     type: null
+    depth: null
 
     constructor: (props = {}) ->
+      @type = @constructor.name
+
       Object.defineProperty @, "parent",
         value: null, enumerable: false, writable: true
 
       Object.defineProperty @, "ancestors", enumerable: false, get: ->
         node = this; node = node.parent while node.parent?
 
-      Object.defineProperty @, "depth", enumerable: true, get: ->
-        if @parent? then @parent.depth + 1 else 0
-
       @[key] = val for own key, val of props
-      @type ?= @constructor.name
+      @depth ?= 0
 
   class ContextNode extends Node
     text: null
@@ -106,19 +112,19 @@ configure = ($ = {}) ->
       @addChild new AssertionNode(props)
 
     getContextNodes: ->
-      @getChildrenByType "ContextNode"
+      @getChildrenByType ContextNode.name
 
     getFileNodes: ->
-      @getChildrenByType "FileNode"
+      @getChildrenByType FileNode.name
 
     getAssertionNodes: ->
-      @getChildrenByType "AssertionNode"
+      @getChildrenByType AssertionNode.name
 
     getBeforeEachNodes: ->
-      @getChildrenByType "BeforeEachNode"
+      @getChildrenByType BeforeEachNode.name
 
     getAncestorContexts: ->
-      @ancestors.filter ({type}) -> type is "ContextNode"
+      @ancestors.filter ({type}) -> type is ContextNode.name
 
     getParentContext: ->
       @getAncestorContexts[0]
@@ -212,10 +218,12 @@ configure = ($ = {}) ->
       contextNode.addBeforeEachNode code: text
 
     getParentNodeForHeading: (headingToken, parseTree, previousContextNode) ->
-      previousNode = (previousContextNode or parseTree)
-      depthDiff = previousNode.depth - headingToken.depth
-      return previousNode if depthDiff is -1
-      return previousNode.ancestors[depthDiff] if depthDiff >= 0
+      return parseTree if headingToken.depth is 1
+      throw new InvalidHeadingDepth headingToken: headingToken unless previousContextNode?
+
+      diff = previousContextNode.depth - headingToken.depth + 1
+      if diff is -1 then return previousContextNode
+      if diff >= 0 then return previousContextNode.ancestors[diff]
       throw new InvalidHeadingDepth headingToken: headingToken
 
     parseContextChildTokens: (contextNode, tokens) ->

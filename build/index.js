@@ -76,6 +76,7 @@ configure = function($) {
     },
     addChild: function(child) {
       child.parent = this;
+      child.depth = this.depth + 1;
       this.children.push(child);
       return child;
     },
@@ -92,22 +93,20 @@ configure = function($) {
     }
   };
   ParseTree = (function() {
-    ParseTree.prototype.children = null;
+    ParseTree.prototype.type = null;
 
-    ParseTree.prototype.depth = null;
+    ParseTree.prototype.children = null;
 
     function ParseTree(props) {
       var key, val;
       if (props == null) {
         props = {};
       }
+      this.type = this.constructor.name;
       for (key in props) {
         if (!hasProp.call(props, key)) continue;
         val = props[key];
         this[key] = val;
-      }
-      if (this.depth == null) {
-        this.depth = 0;
       }
       if (this.children == null) {
         this.children = [];
@@ -127,9 +126,14 @@ configure = function($) {
       return prune(this);
     };
 
-    ParseTree.prototype.addChild = NodeMixins.addChild;
-
-    ParseTree.prototype.addContextNode = NodeMixins.addContextNode;
+    ParseTree.prototype.addContextNode = function(props) {
+      var child;
+      child = new ContextNode(props);
+      child.parent = this;
+      child.depth = 0;
+      this.children.push(child);
+      return child;
+    };
 
     ParseTree.prototype.getChildrenByType = NodeMixins.getChildrenByType;
 
@@ -143,11 +147,14 @@ configure = function($) {
   Node = (function() {
     Node.prototype.type = null;
 
+    Node.prototype.depth = null;
+
     function Node(props) {
       var key, val;
       if (props == null) {
         props = {};
       }
+      this.type = this.constructor.name;
       Object.defineProperty(this, "parent", {
         value: null,
         enumerable: false,
@@ -165,23 +172,13 @@ configure = function($) {
           return results;
         }
       });
-      Object.defineProperty(this, "depth", {
-        enumerable: true,
-        get: function() {
-          if (this.parent != null) {
-            return this.parent.depth + 1;
-          } else {
-            return 0;
-          }
-        }
-      });
       for (key in props) {
         if (!hasProp.call(props, key)) continue;
         val = props[key];
         this[key] = val;
       }
-      if (this.type == null) {
-        this.type = this.constructor.name;
+      if (this.depth == null) {
+        this.depth = 0;
       }
     }
 
@@ -234,26 +231,26 @@ configure = function($) {
     };
 
     ContextNode.prototype.getContextNodes = function() {
-      return this.getChildrenByType("ContextNode");
+      return this.getChildrenByType(ContextNode.name);
     };
 
     ContextNode.prototype.getFileNodes = function() {
-      return this.getChildrenByType("FileNode");
+      return this.getChildrenByType(FileNode.name);
     };
 
     ContextNode.prototype.getAssertionNodes = function() {
-      return this.getChildrenByType("AssertionNode");
+      return this.getChildrenByType(AssertionNode.name);
     };
 
     ContextNode.prototype.getBeforeEachNodes = function() {
-      return this.getChildrenByType("BeforeEachNode");
+      return this.getChildrenByType(BeforeEachNode.name);
     };
 
     ContextNode.prototype.getAncestorContexts = function() {
       return this.ancestors.filter(function(arg) {
         var type;
         type = arg.type;
-        return type === "ContextNode";
+        return type === ContextNode.name;
       });
     };
 
@@ -452,14 +449,21 @@ configure = function($) {
     };
 
     Parser.prototype.getParentNodeForHeading = function(headingToken, parseTree, previousContextNode) {
-      var depthDiff, previousNode;
-      previousNode = previousContextNode || parseTree;
-      depthDiff = previousNode.depth - headingToken.depth;
-      if (depthDiff === -1) {
-        return previousNode;
+      var diff;
+      if (headingToken.depth === 1) {
+        return parseTree;
       }
-      if (depthDiff >= 0) {
-        return previousNode.ancestors[depthDiff];
+      if (previousContextNode == null) {
+        throw new InvalidHeadingDepth({
+          headingToken: headingToken
+        });
+      }
+      diff = previousContextNode.depth - headingToken.depth + 1;
+      if (diff === -1) {
+        return previousContextNode;
+      }
+      if (diff >= 0) {
+        return previousContextNode.ancestors[diff];
       }
       throw new InvalidHeadingDepth({
         headingToken: headingToken
