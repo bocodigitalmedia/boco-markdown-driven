@@ -89,6 +89,17 @@ configure = function($) {
       }
     }
 
+    ParseTree.prototype.pruneInvalidContexts = function() {
+      var hasAssertions;
+      hasAssertions = function(node) {
+        return node.hasAssertions();
+      };
+      return new ParseTree({
+        depth: this.depth,
+        contextNodes: this.contextNodes.filter(hasAssertions)
+      });
+    };
+
     ParseTree.prototype.addContextNode = function(props) {
       var node;
       node = new ContextNode(props);
@@ -170,6 +181,15 @@ configure = function($) {
       node.parent = this;
       this.children.push(node);
       return node;
+    };
+
+    ContextNode.prototype.hasAssertions = function() {
+      if (this.getAssertionNodes().length) {
+        return true;
+      }
+      return this.getContextNodes().some(function(node) {
+        return node.hasAssertions();
+      });
     };
 
     ContextNode.prototype.getChildrenByType = function(type) {
@@ -447,7 +467,7 @@ configure = function($) {
       return this.parseContextChildTokens(contextNode, tokens);
     };
 
-    Parser.prototype.parse = function(tokens, parseTree, previousContextNode) {
+    Parser.prototype.parseTokens = function(tokens, parseTree, previousContextNode) {
       var childTokens, contextNode, headingToken, parentNode;
       if (parseTree == null) {
         parseTree = new ParseTree;
@@ -474,7 +494,13 @@ configure = function($) {
         return results;
       })();
       this.parseContextChildTokens(contextNode, childTokens);
-      return this.parse(tokens, parseTree, contextNode);
+      return this.parseTokens(tokens, parseTree, contextNode);
+    };
+
+    Parser.prototype.parse = function(tokens) {
+      var parseTree;
+      parseTree = this.parseTokens(tokens);
+      return parseTree = parseTree.pruneInvalidContexts();
     };
 
     return Parser;
