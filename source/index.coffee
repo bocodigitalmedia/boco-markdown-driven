@@ -49,11 +49,11 @@ configure = ($ = {}) ->
       @[key] = val for own key, val of props
       @children ?= []
 
-    addEmptyAssertionNodes: (node = this) ->
+    addPlaceholderAssertionNodes: (node = this) ->
       children = node.getContextNodes()
-      isApplicable = (child) -> child.getAssertionNodes().length is 0 and child.getBeforeEachNodes().length > 0
-      child.addAssertionNode(text: "is ok", code: '') for child in children when isApplicable(child)
-      @addEmptyAssertionNodes child for child in children
+      isApplicable = (child) -> !child.hasAssertions() and child.getBeforeEachNodes().length > 0
+      child.addAssertionNode(placeholder: true) for child in children when isApplicable(child)
+      @addPlaceholderAssertionNodes child for child in children
 
     pruneInvalidContexts: (node = this) ->
       children = node.getContextNodes()
@@ -142,6 +142,11 @@ configure = ($ = {}) ->
   class AssertionNode extends Node
     text: null
     code: null
+    placeholder: null
+
+    constructor: (props) ->
+      super props
+      @placeholder ?= false
 
   class InvalidHeadingDepth extends Error
     headingToken: null
@@ -255,7 +260,7 @@ configure = ($ = {}) ->
 
     parse: (tokens) ->
       parseTree = @parseTokens tokens
-      parseTree.addEmptyAssertionNodes()
+      parseTree.addPlaceholderAssertionNodes()
       parseTree.pruneInvalidContexts()
       parseTree
 
